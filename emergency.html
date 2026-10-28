@@ -148,6 +148,30 @@ const PATH = {
 };
 const pt = (z, i) => SLOT[z][i];
 
+
+// ── 圖示：模擬假人（安妮 CPR 假人，俯視躺在推床上）、護理師（護士帽＋紫色制服）──
+const SKIN = '#f2c9a8', SKIN_LINE = '#b8876a';
+function annieIcon() {                         // 以 (0,0) 為中心，頭朝左
+  return `<rect x="-36" y="-15" width="72" height="30" rx="8" fill="#fff" stroke="#9ca3af" stroke-width="2"/>` +      // 推床
+    `<rect x="-14" y="-12.5" width="38" height="5" rx="2.5" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1.2"/>` +  // 上臂
+    `<rect x="-14" y="7.5" width="38" height="5" rx="2.5" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1.2"/>` +
+    `<rect x="-16" y="-9.5" width="42" height="19" rx="7" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1.5"/>` +   // 軀幹
+    `<rect x="-20" y="-4" width="6" height="8" rx="2" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1.2"/>` +      // 頸
+    `<circle cx="-27" cy="0" r="9" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1.5"/>` +                          // 頭
+    `<path d="M-33 -5 Q-27 -11 -21 -5" fill="none" stroke="#8b5e3c" stroke-width="2.4" stroke-linecap="round"/>` +       // 頭髮
+    `<circle cx="-24" cy="-2.5" r="1" fill="#5b4636"/><circle cx="-24" cy="2.5" r="1" fill="#5b4636"/>` +                 // 眼
+    `<circle cx="2" cy="0" r="4.2" fill="none" stroke="#dc2626" stroke-width="2"/><path d="M-1 0H5M2 -3V3" stroke="#dc2626" stroke-width="1.6"/>`;  // 壓胸點
+}
+function nurseIcon(R) {                        // 頭＋護士帽（紅十字）＋紫色制服肩膀
+  return `<circle r="${R}" fill="#ede9fe" stroke="#fff" stroke-width="2.5"/>` +
+    `<path d="M${-R * .78} ${R * .78} Q${-R * .7} ${R * .12} 0 ${R * .14} Q${R * .7} ${R * .12} ${R * .78} ${R * .78} Q0 ${R * 1.05} ${-R * .78} ${R * .78}Z" fill="${C.rn}"/>` +
+    `<path d="M-4 ${R * .14} L0 ${R * .45} L4 ${R * .14}" fill="#fff"/>` +                                          // V 領
+    `<circle cy="${-R * .22}" r="${R * .38}" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1"/>` +             // 頭
+    `<path d="M${-R * .5} ${-R * .5} L${-R * .4} ${-R * .9} L${R * .4} ${-R * .9} L${R * .5} ${-R * .5} Z" fill="#fff" stroke="#9ca3af" stroke-width="1"/>` +  // 護士帽
+    `<path d="M0 ${-R * .84}V${-R * .56}M${-R * .14} ${-R * .7}H${R * .14}" stroke="#dc2626" stroke-width="2"/>`;   // 紅十字
+}
+const iconSvg = (inner, vb, w = '1.6em', h = '1.1em') => `<svg viewBox="${vb}" width="${w}" height="${h}" style="vertical-align:-.3em;flex:none">${inner}</svg>`;
+
 function svgFor(s) {
   const roomName = z => z === ROOM.ct ? 'CT 室' : 'X 光室';
   const fill = z => z === ROOM.ct ? '#f6c39f' : '#9ec3ea';
@@ -193,9 +217,10 @@ function svgFor(s) {
     const P = PEOPLE[p.who], [x, y] = p.at, R = p.who === 'mk' ? 20 : 17;
     const ghost = p.ghost;
     g += `<g transform="translate(${x},${y})" opacity="${ghost ? .45 : 1}">`;
-    if (p.who === 'mk') g += `<rect x="-34" y="-14" width="68" height="28" rx="8" fill="#fff" stroke="#9ca3af" stroke-width="2"/>`;      // 推床
     if (p.lead) g += `<circle r="${R + 6}" fill="none" stroke="#f59e0b" stroke-width="4"/>`;
-    g += `<circle r="${R}" fill="${P.c}" stroke="#fff" stroke-width="2.5"/><text y="6" font-size="${P.t.length > 1 ? 14 : 17}" font-weight="800" text-anchor="middle" fill="#fff">${P.t}</text>`;
+    if (p.who === 'mk') g += `<g transform="scale(1.2)">${annieIcon()}</g>`;   // 安妮假人躺在推床上
+    else if (p.who === 'rn') g += nurseIcon(R + 1);                         // 護理師圖示
+    else g += `<circle r="${R}" fill="${P.c}" stroke="#fff" stroke-width="2.5"/><text y="6" font-size="${P.t.length > 1 ? 14 : 17}" font-weight="800" text-anchor="middle" fill="#fff">${P.t}</text>`;
     if (p.lead) g += `<text x="${R}" y="${-R + 2}" font-size="18">⭐</text>`;
     if (p.tag) g += `<text y="${p.who === 'mk' ? -R - 10 : R + 20}" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37" paint-order="stroke" stroke="#fff" stroke-width="4">${p.tag}</text>`;
     g += `</g>`;
@@ -293,7 +318,7 @@ for (const s of SCN) {
   let routeTag = '';
   if (s.dest) routeTag = `<span class="route ${near(s.dest) ? 'near' : 'far'}">推床到目的地：${near(s.dest) ? '就在隔壁，最近' : '要經過走道，較遠'}</span>`;
   if (s.id === 's2') routeTag = `<span class="route far">急救車路線：CT → 走道 → 等候區 → X 光室</span>`;
-  const rows = s.roles.map(([w, t]) => `<tr><td><span class="who"><span class="dot" style="background:${PEOPLE[w].c}"></span>${PEOPLE[w].name}</span></td><td>${t}</td></tr>`).join('');
+  const rows = s.roles.map(([w, t]) => `<tr><td><span class="who">${w === 'rn' ? iconSvg(nurseIcon(17), '-22 -22 44 44', '1.5em', '1.5em') : `<span class="dot" style="background:${PEOPLE[w].c}"></span>`}${PEOPLE[w].name}</span></td><td>${t}</td></tr>`).join('');
   html += `<h2 id="${s.id}"><span class="no">${s.no}</span>${s.title}</h2>
   <div class="scn">
     <div class="card fig"><div class="pz">${svgFor(s)}</div><span class="route ${s.id === 's1' ? 'near' : 'key'}">${s.badge}</span>${routeTag}</div>
@@ -309,8 +334,8 @@ document.querySelectorAll('.fig .pz').forEach(b => panZoom(b));
 
 // 圖例
 document.getElementById('legend').innerHTML = [
-  ['rn', '護理師（⭐ 隊長）'], ['rtc', 'CT 放射師（C）'], ['rta', 'X 光放射師（A／B）'], ['sp', '標準病人（SP）'], ['mk', '模擬假人（在推床上）'],
-].map(([w, t]) => `<span><span class="dot" style="background:${PEOPLE[w].c}"></span>${t}</span>`).join('') +
+  ['rn', '護理師（⭐ 隊長）'], ['rtc', 'CT 放射師（C）'], ['rta', 'X 光放射師（A／B）'], ['sp', '標準病人（SP）'], ['mk', '模擬假人（安妮，躺在推床上）'],
+].map(([w, t]) => `<span>${w === 'rn' ? iconSvg(nurseIcon(17), '-22 -22 44 44', '1.5em', '1.5em') : w === 'mk' ? iconSvg(annieIcon(), '-38 -17 76 34') : `<span class="dot" style="background:${PEOPLE[w].c}"></span>`}${t}</span>`).join('') +
   '<span><span class="dot" style="background:#fecaca;border:2px dashed #7f1d1d;border-radius:4px"></span>半透明＝原本位置</span>' +
   '<span><span style="display:inline-block;width:36px;border-top:4px dashed #374151"></span>移動路線</span>' +
   '<span><span class="dot" style="background:#0ea5e9;border-radius:5px"></span>牆上氧氣 O₂</span>';
