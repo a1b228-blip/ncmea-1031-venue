@@ -22,6 +22,12 @@
   #view button.on{background:#1f2a37;color:#fff}
   body.embed #title{display:none}
   body.shot #view{display:none}
+  @media (max-width:700px){
+    #legend{font-size:11px;padding:6px 9px;right:8px;top:8px;border-radius:10px}
+    #note{display:none}
+    #view{left:8px;right:8px;bottom:8px;gap:4px}
+    #view button{flex:1 1 0;font-size:12px;padding:6px 2px}
+  }
 </style>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}

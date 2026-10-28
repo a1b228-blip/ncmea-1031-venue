@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>競賽場地配置圖</title>
 <style>
   html{touch-action:pan-y}                                    /* 只允許上下捲動，觸控也不能左右滑、不能捏合縮放整頁 */
@@ -28,21 +28,40 @@
   main iframe,#imgbox{position:absolute;inset:0;width:100%;height:100%;border:0}
   #imgbox img{display:block;width:100%;height:100%;object-fit:contain;padding:12px}
   [hidden]{display:none!important}
+  #mode button i{font-style:normal;margin-right:4px}
+  .short{display:none}
+  /* ── 手機版：分頁移到畫面最下方，頂端只留標題與方案切換 ── */
+  @media (max-width:700px){
+    header{padding:10px 12px;gap:8px;flex-wrap:nowrap}
+    header h1{font-size:16px;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #plan{flex:none}
+    #plan button{padding:6px 10px;font-size:14px}
+    #plan .long{display:none}
+    #mode{position:fixed;left:0;right:0;bottom:0;z-index:20;border-radius:0;flex-wrap:nowrap;justify-content:space-around;
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom));background:#fff;box-shadow:0 -2px 12px rgba(0,0,0,.1)}
+    #mode button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;font-size:12px}
+    #mode button i{font-size:21px;margin:0}
+    #mode .full{display:none}
+    #mode .short{display:block}
+    #mode button.on{background:#eef2ff;color:#1d4ed8;box-shadow:none}
+    main{margin-bottom:calc(66px + env(safe-area-inset-bottom))}
+    #imgbox img{padding:4px}
+  }
 </style>
 </head>
 <body>
 <header>
   <h1>1031 競賽場地配置圖</h1>
   <div class="group" id="plan">
-    <button data-v="1" class="on">方案一：A＝X光／B＝CT</button>
-    <button data-v="2">方案二：A＝CT／B＝X光</button>
+    <button data-v="1" class="on">方案一<span class="long">：A＝X光／B＝CT</span></button>
+    <button data-v="2">方案二<span class="long">：A＝CT／B＝X光</span></button>
   </div>
   <div class="group" id="mode">
-    <button data-v="img" class="on">靜態圖</button>
-    <button data-v="3d">互動 3D</button>
-    <button data-v="linkou">林口場地結合</button>
-    <button data-v="tips">考前重點提醒</button>
-    <button data-v="er">急救情境預案</button>
+    <button data-v="img" class="on"><i>🖼️</i><span class="full">靜態圖</span><span class="short">靜態圖</span></button>
+    <button data-v="3d"><i>🧊</i><span class="full">互動 3D</span><span class="short">互動3D</span></button>
+    <button data-v="linkou"><i>🗺️</i><span class="full">林口場地結合</span><span class="short">林口場地</span></button>
+    <button data-v="tips"><i>📋</i><span class="full">考前重點提醒</span><span class="short">重點提醒</span></button>
+    <button data-v="er"><i>🚑</i><span class="full">急救情境預案</span><span class="short">急救預案</span></button>
   </div>
   <span id="hint"></span>
 </header>
@@ -82,6 +101,15 @@
     if ((e.key === '1' || e.key === '2') && !document.getElementById('plan').classList.contains('off')) document.querySelector(`#plan button[data-v="${e.key}"]`).click();
   });
   const pzImg = panZoom(imgbox, { wheelZoom: true });
+  // 手機直式螢幕：橫向的配置圖一開始就放大到填滿畫面高度，左右滑動看全圖
+  const phone = matchMedia('(max-width:700px)');
+  img.addEventListener('load', () => {
+    pzImg.reset();
+    if (!phone.matches || !img.naturalWidth) return;
+    const shownH = imgbox.clientWidth * img.naturalHeight / img.naturalWidth;
+    const k = Math.min(4, imgbox.clientHeight / shownH * 0.92);
+    if (k > 1.1) pzImg.zoomCenter(k);
+  });
   show();
 </script>
 </body>

@@ -18,6 +18,12 @@
   #legend i{display:inline-block;width:1.1em;height:.75em;border-radius:3px}
   #note{position:absolute;left:3vw;bottom:1.5vw;font-size:clamp(10px,.9vw,21px);color:#6b7280}
   body.embed #title{display:none}
+  @media (max-width:700px){
+    #legend{font-size:11px;padding:6px 9px;right:8px;top:8px;border-radius:10px}
+    #note{display:none}
+    #view{left:8px;right:8px;bottom:8px;gap:4px}
+    #view button{flex:1 1 0;font-size:12px;padding:6px 2px}
+  }
 </style>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
@@ -65,7 +71,7 @@ scene.background = new THREE.Color(0xeef1f5);
 // 座標：x = 投影片 x（pt），z = 投影片 y（pt，往下＝南），y = 高度
 const C = { x: 490, z: 308 };
 // 視窗窄時加大可視高度，確保整個場地左右都放得下
-const fitSpan = a => Math.max(900, 1500 / a);
+const fitSpan = a => Math.max(900, 1150 / a);           // 手機直式也讓模型盡量撐滿寬度
 let aspect = W / H, span = fitSpan(aspect);
 const cam = new THREE.OrthographicCamera(-span * aspect / 2, span * aspect / 2, span / 2, -span / 2, 1, 5000);
 cam.position.set(C.x - 170, 900, C.z + 560);

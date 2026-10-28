@@ -53,7 +53,17 @@
   .rules .card b{font-size:24px}
   .rules .card p{margin:4px 0 0;font-size:21px;color:var(--sub)}
   @media (max-width:900px){.scn{grid-template-columns:1fr}}
-  @media (max-width:520px){body{font-size:21px}h2{font-size:27px}table,ol.steps{font-size:19px}}
+  @media (max-width:600px){
+    body{font-size:19px}h2{font-size:24px}h2 .no{min-width:42px;height:42px;font-size:20px}
+    .hero h1{font-size:30px}.hero p{font-size:18px}.hero .meta span{font-size:16px}
+    .bar a,.bar .plan{font-size:15px}.bar .plan{margin-left:0}
+    table,ol.steps{font-size:18px}
+    table tr:first-child{display:none}
+    table td{display:block;border:0;padding:2px 4px}
+    table tr{display:block;border-bottom:1px solid var(--line);padding:8px 0}
+    .route{font-size:16px}.tip{font-size:17px}
+    .res .card p,.rules .card p{font-size:17px}.res .card h4,.rules .card b{font-size:20px}
+  }
 </style>
 </head>
 <body>

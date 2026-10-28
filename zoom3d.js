@@ -39,7 +39,13 @@ export function installZoom({ cam, render, reset, controls, pan = false }) {
     #zoom3d button{width:38px;height:38px;border:0;border-radius:10px;background:#fff;color:#1f2a37;font:600 20px/1 sans-serif;
       cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
     #zoom3d button:hover{background:#1f2a37;color:#fff}
-    body.shot #zoom3d{display:none}`;
+    body.shot #zoom3d{display:none}
+    @media (max-width:700px){
+      #zoom3d{right:8px;bottom:8px;gap:4px}
+      body:has(#view) #zoom3d{bottom:52px}
+      #zoom3d button{width:36px;height:36px;font-size:18px}
+      #zoom3d .lbl{display:none}
+    }`;
   document.head.append(css);
   const bar = document.createElement('div');
   bar.id = 'zoom3d';
@@ -58,7 +64,7 @@ export function installZoom({ cam, render, reset, controls, pan = false }) {
     controls.mouseButtons.LEFT = on ? 2 : 0;                             // 2＝PAN、0＝ROTATE
     controls.mouseButtons.RIGHT = on ? 0 : 2;
     controls.touches.ONE = on ? 1 : 0;                                   // 1＝PAN、0＝ROTATE
-    modeBtn.textContent = on ? '✋ 平移中' : '⟳ 旋轉中';
+    modeBtn.innerHTML = on ? '✋<span class="lbl"> 平移中</span>' : '⟳<span class="lbl"> 旋轉中</span>';
     setCursor(on);
   }
   function setCursor(on) { const c = document.querySelector('canvas'); if (c) c.style.cursor = on ? 'grab' : ''; }

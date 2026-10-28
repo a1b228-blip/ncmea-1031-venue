@@ -87,5 +87,5 @@ window.panZoom = function (box, { wheelZoom = false } = {}) {
     document.head.append(css);
   }
   apply();
-  return { reset };
+  return { reset, zoomCenter: k => zoomAt(k, ...center()) };
 };
