@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D 醫護與病人角色造型選角中心｜每種角色 3 款立體設計</title>
+<style>
+  :root {
+    --bg: #0b1120;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #f8fafc;
+    --sub: #94a3b8;
+    --accent: #3b82f6;
+    --selected: #10b981;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif;
+  }
+  /* 單一全螢幕底層 WebGL Canvas（使用 Scissor 多視窗高效能渲染 12 個 3D 展示台） */
+  #webgl-canvas {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 1;
+  }
+  .page {
+    position: relative; z-index: 2;
+    max-width: 1380px; margin: 0 auto;
+    padding: 20px 24px 110px;
+  }
+  header.hero {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 16px; background: rgba(15, 23, 42, 0.92);
+    border: 1px solid var(--border); border-radius: 18px;
+    padding: 18px 24px; margin-bottom: 22px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+  .hero h1 { margin: 0; font-size: clamp(22px, 2.2vw, 30px); font-weight: 900; }
+  .hero p { margin: 6px 0 0; color: var(--sub); font-size: 15px; }
+
+  .pose-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    background: #0f172a; padding: 6px 10px; border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .pose-bar span { font-size: 13px; color: var(--sub); font-weight: 700; margin-right: 4px; }
+  .pose-bar button {
+    border: 0; background: #1e293b; color: #cbd5e1;
+    font: inherit; font-size: 13.5px; font-weight: 700;
+    padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .pose-bar button:hover { background: #334155; color: #fff; }
+  .pose-bar button.on { background: var(--accent); color: #fff; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.45); }
+
+  .role-section { margin-bottom: 28px; }
+  .role-head {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 12px; font-size: 21px; font-weight: 800;
+  }
+  .role-head .role-badge {
+    padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 800; color: #fff;
+  }
+
+  .grid-3 {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 18px;
+  }
+  .char-card {
+    background: rgba(30, 41, 59, 0.55);
+    border: 2px solid var(--border);
+    border-radius: 18px; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .char-card.active {
+    border-color: var(--selected);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 14px 34px rgba(0, 0, 0, 0.45);
+  }
+  .viewport-slot {
+    width: 100%; height: 270px; position: relative;
+    cursor: grab; background: transparent;
+  }
+  .viewport-slot:active { cursor: grabbing; }
+  .vp-tag {
+    position: absolute; top: 10px; left: 12px;
+    background: rgba(15, 23, 42, 0.82); border: 1px solid rgba(148, 163, 184, 0.25);
+    color: #f8fafc; font-size: 12px; font-weight: 800;
+    padding: 3px 10px; border-radius: 999px; pointer-events: none;
+  }
+  .vp-selected-pill {
+    position: absolute; top: 10px; right: 12px;
+    background: var(--selected); color: #052e16;
+    font-size: 12px; font-weight: 900;
+    padding: 3px 10px; border-radius: 999px;
+    display: none; pointer-events: none;
+  }
+  .char-card.active .vp-selected-pill { display: inline-block; }
+
+  .card-info {
+    background: rgba(15, 23, 42, 0.94);
+    border-top: 1px solid var(--border);
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1;
+  }
+  .card-info h3 { margin: 0; font-size: 17px; color: #fff; }
+  .card-info p { margin: 0; font-size: 13.5px; color: var(--sub); line-height: 1.5; flex: 1; }
+  .btn-pick {
+    width: 100%; border: 1px solid #475569;
+    background: #1e293b; color: #f8fafc;
+    font: inherit; font-size: 15px; font-weight: 800;
+    padding: 10px 14px; border-radius: 11px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-pick:hover { background: #334155; }
+  .char-card.active .btn-pick {
+    background: var(--selected); border-color: #34d399; color: #052e16;
+  }
+
+  /* 底部懸浮確認列 */
+  .sticky-footer {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 12px; box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  }
+  .summary-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
+  .summary-chips span {
+    background: #1e293b; border: 1px solid #475569;
+    padding: 5px 12px; border-radius: 999px; color: #e2e8f0; font-weight: 700;
+  }
+  .summary-chips b { color: #34d399; }
+  .btn-apply {
+    border: 0; background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff; font: inherit; font-size: 16px; font-weight: 900;
+    padding: 11px 24px; border-radius: 12px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.5);
+    text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-apply:hover { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="webgl-canvas"></canvas>
+
+<div class="page">
+  <header class="hero">
+    <div>
+      <h1>🎨 3D 醫護與病人角色造型選角中心（4 大角色 × 3 款設計）</h1>
+      <p>可用滑鼠拖曳任一展示格 360° 旋轉檢視細節，點選下方「選用此造型」即可即時替換 3D 急救模擬動畫裡的人物！</p>
+    </div>
+    <div class="pose-bar" id="poseBar">
+      <span>🕺 統一預覽動作：</span>
+      <button data-pose="idle" class="on">待機呼吸</button>
+      <button data-pose="walk">跑步支援</button>
+      <button data-pose="cpr">CPR 壓胸／胸廓回彈</button>
+      <button data-pose="bagging">擠甦醒球通氣</button>
+      <button data-pose="clear">喊離開淨空</button>
+    </div>
+  </header>
+
+  <div id="catalogContainer"></div>
+</div>
+
+<footer class="sticky-footer">
+  <div class="summary-chips" id="summaryChips"></div>
+  <div style="display:flex;gap:10px; flex-wrap:wrap;">
+    <a class="btn-apply" id="goAnimBtn" href="er3d_s1.html">🚀 套用所選人物並進入 3D 急救動畫 →</a>
+  </div>
+</footer>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import {
+  CHARACTER_CATALOG,
+  getSavedCharacterStyles,
+  saveCharacterStyles,
+  buildStandingCharacter,
+  buildAnnieCharacter,
+  tickCharacterAnimation
+} from './characters3d.js';
+
+const selected = getSavedCharacterStyles();
+let currentPose = 'idle';
+
+const ROLE_COLORS = {
+  rn: '#7c3aed',
+  rt: '#2563eb',
+  sp: '#059669',
+  mk: '#dc2626'
+};
+
+// 1. 生成 HTML 12 宮格卡片
+const container = document.getElementById('catalogContainer');
+let html = '';
+for (const [roleKey, roleMeta] of Object.entries(CHARACTER_CATALOG)) {
+  html += `<section class="role-section" data-role="${roleKey}">
+    <h2 class="role-head">
+      <span class="role-badge" style="background:${ROLE_COLORS[roleKey]}">${roleKey.toUpperCase()}</span>
+      ${roleMeta.title}
+    </h2>
+    <div class="grid-3">`;
+  for (const [varKey, varMeta] of Object.entries(roleMeta.variants)) {
+    const isAct = selected[roleKey] === varKey;
+    html += `<div class="char-card ${isAct ? 'active' : ''}" id="card-${roleKey}-${varKey}" data-role="${roleKey}" data-var="${varKey}">
+      <div class="viewport-slot" id="vp-${roleKey}-${varKey}">
+        <span class="vp-tag">滑鼠拖曳 360° 旋轉</span>
+        <span class="vp-selected-pill">✓ 目前選用</span>
+      </div>
+      <div class="card-info">
+        <h3>${varMeta.name}</h3>
+        <p>${varMeta.desc}</p>
+        <button class="btn-pick" data-role="${roleKey}" data-var="${varKey}">
+          ${isAct ? '✅ 已選用此造型' : '選用此造型'}
+        </button>
+      </div>
+    </div>`;
+  }
+  html += `</div></section>`;
+}
+container.innerHTML = html;
+
+function updateSelectionUI() {
+  for (const roleKey of Object.keys(CHARACTER_CATALOG)) {
+    for (const varKey of ['A', 'B', 'C']) {
+      const card = document.getElementById(`card-${roleKey}-${varKey}`);
+      const btn = card.querySelector('.btn-pick');
+      const isAct = selected[roleKey] === varKey;
+      card.classList.toggle('active', isAct);
+      btn.textContent = isAct ? '✅ 已選用此造型' : '選用此造型';
+    }
+  }
+  const chips = document.getElementById('summaryChips');
+  chips.innerHTML =
+    `<span>護理師：<b>款式 ${selected.rn}</b></span>` +
+    `<span>放射師：<b>款式 ${selected.rt}</b></span>` +
+    `<span>標準病人 SP：<b>款式 ${selected.sp}</b></span>` +
+    `<span>安妮假人：<b>款式 ${selected.mk}</b></span>`;
+  saveCharacterStyles(selected);
+}
+updateSelectionUI();
+
+document.querySelectorAll('.btn-pick').forEach(btn => {
+  btn.onclick = () => {
+    const r = btn.dataset.role, v = btn.dataset.var;
+    selected[r] = v;
+    updateSelectionUI();
+  };
+});
+
+// 2. 建立單一高效能 WebGLRenderer 與 12 個獨立子場景
+const canvas = document.getElementById('webgl-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setScissorTest(true);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const views = [];
+
+for (const roleKey of Object.keys(CHARACTER_CATALOG)) {
+  for (const varKey of ['A', 'B', 'C']) {
+    const el = document.getElementById(`vp-${roleKey}-${varKey}`);
+    const sc = new THREE.Scene();
+
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.25));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.7);
+    dirLight.position.set(45, 90, 75);
+    sc.add(dirLight);
+    const backLight = new THREE.DirectionalLight(0x93c5fd, 0.7);
+    backLight.position.set(-45, 50, -60);
+    sc.add(backLight);
+
+    // 圓形展示舞台底座
+    const ped = new THREE.Mesh(
+      new THREE.CylinderGeometry(20, 22, 2.5, 36),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.3 })
+    );
+    ped.position.y = -1.25;
+    sc.add(ped);
+
+    let actor;
+    const cam = new THREE.PerspectiveCamera(34, 1, 1, 500);
+    const controls = new OrbitControls(cam, el);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+
+    if (roleKey === 'mk') {
+      // 假人躺在迷你展示檢查墊上
+      const matPad = new THREE.Mesh(
+        new THREE.BoxGeometry(22, 3, 52),
+        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 })
+      );
+      matPad.position.set(0, 4.5, 0);
+      sc.add(matPad);
+      actor = buildAnnieCharacter(THREE, { variant: varKey });
+      actor.userData.padsGroup.visible = true;
+      sc.add(actor);
+      cam.position.set(42, 46, 48);
+      controls.target.set(0, 10, -2);
+    } else {
+      actor = buildStandingCharacter(THREE, {
+        role: roleKey,
+        variant: varKey,
+        isLeader: roleKey === 'rn'
+      });
+      sc.add(actor);
+      cam.position.set(0, 36, 92);
+      controls.target.set(0, 25, 0);
+    }
+    controls.update();
+
+    views.push({ el, sc, cam, controls, actor, roleKey });
+  }
+}
+
+document.querySelectorAll('#poseBar button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#poseBar button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    currentPose = btn.dataset.pose;
+    for (const v of views) {
+      if (v.roleKey === 'mk') {
+        v.actor.userData.cprActive = (currentPose === 'cpr' || currentPose === 'bagging');
+        v.actor.userData.headPivot.rotation.x = currentPose === 'bagging' ? -0.35 : 0;
+        v.actor.userData.maskOnFace.visible = currentPose === 'bagging';
+      } else {
+        v.actor.userData.pose = currentPose;
+        v.actor.userData.handAmbu.visible = (currentPose === 'bagging');
+      }
+    }
+  };
+});
+
+function renderAll(now) {
+  requestAnimationFrame(renderAll);
+
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== w * renderer.getPixelRatio() || canvas.height !== h * renderer.getPixelRatio()) {
+    renderer.setSize(w, h, false);
+  }
+
+  renderer.setScissorTest(false);
+  renderer.clear();
+  renderer.setScissorTest(true);
+
+  for (const v of views) {
+    const rect = v.el.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > h || rect.right < 0 || rect.left > w) continue;
+
+    const vw = rect.width, vh = rect.height;
+    const left = rect.left;
+    const bottom = h - rect.bottom;
+
+    v.cam.aspect = vw / vh;
+    v.cam.updateProjectionMatrix();
+    v.controls.update();
+
+    // 緩慢自轉展示
+    v.actor.rotation.y = Math.sin(now * 0.0007) * 0.45;
+    tickCharacterAnimation(v.actor, now);
+
+    renderer.setViewport(left, bottom, vw, vh);
+    renderer.setScissor(left, bottom, vw, vh);
+    renderer.render(v.sc, v.cam);
+  }
+}
+requestAnimationFrame(renderAll);
+</script>
+</body>
+</html>

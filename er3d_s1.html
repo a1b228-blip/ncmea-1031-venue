@@ -1,0 +1,1939 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>1031 急救情境預案｜四種狀況 3D 實景模擬動畫（含語音解說）</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: rgba(15, 23, 42, 0.88);
+    --panel-border: rgba(148, 163, 184, 0.24);
+    --text: #f8fafc;
+    --sub: #cbd5e1;
+    --accent: #ef4444;
+    --gold: #fbbf24;
+    --ok: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif;
+    overflow: hidden; user-select: none;
+  }
+  #canvas-wrap { position: absolute; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* 頂部導覽與控制列 */
+  header.topbar {
+    position: absolute; top: 12px; left: 14px; right: 14px; z-index: 20;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    background: var(--panel); backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px; padding: 9px 14px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 240px; }
+  .brand .badge {
+    background: linear-gradient(135deg, #dc2626, #991b1b);
+    color: #fff; font-weight: 800; font-size: 14px;
+    padding: 4px 11px; border-radius: 999px; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45);
+  }
+  .brand h1 { margin: 0; font-size: clamp(15px, 1.35vw, 20px); font-weight: 800; color: #fff; }
+  .brand small { display: block; color: var(--sub); font-size: 12px; margin-top: 1px; }
+
+  .pill-group {
+    display: inline-flex; flex-wrap: wrap; background: rgba(30, 41, 59, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 10px; padding: 3px; gap: 3px;
+  }
+  .pill-group button, .btn-top {
+    border: 0; background: transparent; color: var(--sub);
+    font: inherit; font-size: 13.5px; font-weight: 700;
+    padding: 5px 10px; border-radius: 7px; cursor: pointer;
+    transition: all 0.16s ease; white-space: nowrap;
+  }
+  .pill-group button:hover, .btn-top:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+  .pill-group button.on {
+    background: #2563eb; color: #fff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+  }
+  #sceneGroup button.on {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45);
+  }
+  .btn-top {
+    background: rgba(30, 41, 59, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: #f8fafc; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+  }
+  body.embed header.topbar .btn-back { display: none; }
+  body.embed #planGroup { display: none; }   /* 內嵌時方案跟著急救預案頁 */
+
+  /* 右上角：生理監視器與圖例面板 */
+  .side-hud {
+    position: absolute; top: 78px; right: 14px; z-index: 15;
+    width: 272px; display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+  }
+  .monitor-card {
+    background: rgba(10, 15, 28, 0.92);
+    border: 2px solid #334155; border-radius: 14px;
+    padding: 10px 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  }
+  .monitor-head {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; font-weight: 800; color: #94a3b8; margin-bottom: 6px;
+  }
+  .monitor-head .status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #ef4444; box-shadow: 0 0 8px #ef4444; margin-right: 5px;
+    animation: pulse 0.9s infinite alternate;
+  }
+  @keyframes pulse { from { opacity: 0.35; } to { opacity: 1; } }
+  #ecgCanvas {
+    width: 100%; height: 60px; background: #050811;
+    border-radius: 8px; border: 1px solid #1e293b; display: block;
+  }
+  .vitals-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px;
+  }
+  .vital-box {
+    background: rgba(15, 23, 42, 0.9); border-radius: 8px; padding: 4px 7px;
+    border-left: 3px solid #22c55e;
+  }
+  .vital-box.spo2 { border-left-color: #38bdf8; }
+  .vital-box.etco2 { border-left-color: #fbbf24; }
+  .vital-box small { display: block; font-size: 10px; color: #94a3b8; font-weight: 700; }
+  .vital-box strong { font-size: 15px; font-family: ui-monospace, SFMono-Regular, monospace; }
+
+  .legend-card {
+    background: var(--panel); backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border); border-radius: 14px;
+    padding: 10px 13px; font-size: 12.5px; line-height: 1.65;
+  }
+  .legend-card b { display: block; font-size: 13px; color: #fff; margin-bottom: 4px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; color: var(--sub); }
+  .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+
+  /* 全院 999 廣播橫幅 */
+  #broadcastBanner {
+    position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+    z-index: 25; background: linear-gradient(90deg, #991b1b, #dc2626, #991b1b);
+    color: #fff; padding: 7px 22px; border-radius: 999px;
+    font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
+    box-shadow: 0 8px 28px rgba(220, 38, 38, 0.65);
+    border: 2px solid #fca5a5; display: none; align-items: center; gap: 10px;
+    white-space: nowrap;
+  }
+  #broadcastBanner.show { display: inline-flex; animation: bannerPop 0.35s ease; }
+  @keyframes bannerPop {
+    from { transform: translateX(-50%) translateY(-12px) scale(0.9); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  }
+
+  /* 底部：叫叫 CABD 進度與分步語音講解面板 */
+  .bottom-dock {
+    position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 20;
+    max-width: 1150px; margin: 0 auto;
+    background: var(--panel); backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    border-radius: 18px; padding: 12px 18px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column; gap: 9px;
+  }
+  .cabd-track {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+  }
+  .cabd-node {
+    display: inline-flex; align-items: baseline; gap: 4px;
+    padding: 4px 11px; border-radius: 9px;
+    background: rgba(51, 65, 85, 0.78); color: #94a3b8;
+    font-size: 15px; font-weight: 800; cursor: pointer;
+    border: 1px solid transparent; transition: all 0.2s ease;
+  }
+  .cabd-node small { font-size: 11.5px; font-weight: 600; opacity: 0.9; }
+  .cabd-node.done {
+    background: rgba(22, 163, 74, 0.22); color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.4);
+  }
+  .cabd-node.done::after { content: ' ✓'; font-size: 12px; }
+  .cabd-node.now {
+    background: #dc2626; color: #fff;
+    border-color: #fca5a5;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.35);
+    transform: translateY(-1px);
+  }
+  .cabd-arrow { color: #64748b; font-size: 13px; font-style: normal; }
+
+  .caption-box {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 13px; padding: 10px 15px; min-height: 58px;
+  }
+  .step-tag {
+    background: var(--gold); color: #0f172a;
+    font-weight: 900; font-size: 15px;
+    padding: 5px 11px; border-radius: 8px; white-space: nowrap; flex: none;
+  }
+  .step-text {
+    font-size: clamp(15px, 1.35vw, 20px); line-height: 1.52; color: #f8fafc; flex: 1;
+  }
+  .step-text b { color: #fde68a; font-weight: 800; }
+
+  .ctl-row {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .ctl-left, .ctl-right { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  .btn-ctl {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(30, 41, 59, 0.95); color: #f8fafc;
+    font: inherit; font-size: 14px; font-weight: 800;
+    padding: 7px 14px; border-radius: 10px; cursor: pointer;
+    transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn-ctl:hover:not(:disabled) { background: #334155; transform: translateY(-1px); }
+  .btn-ctl:disabled { opacity: 0.4; cursor: default; }
+  .btn-ctl.primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border-color: #60a5fa; color: #fff;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
+  }
+  .btn-ctl.primary:hover:not(:disabled) { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .btn-ctl.auto-on {
+    background: linear-gradient(135deg, #059669, #047857);
+    border-color: #34d399; color: #fff;
+  }
+  .step-counter {
+    font-size: 14px; font-weight: 800; color: var(--sub); padding: 0 6px;
+  }
+
+  @media (max-width: 860px) {
+    .side-hud { display: none; }
+    header.topbar { padding: 7px 10px; gap: 5px; }
+    .bottom-dock { padding: 9px 11px; bottom: 8px; left: 8px; right: 8px; }
+    .btn-ctl { font-size: 12.5px; padding: 6px 10px; }
+    .cabd-node { font-size: 12.5px; padding: 3px 7px; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="badge" id="sceneBadge">狀況一 3D</span>
+    <div>
+      <h1 id="sceneTitle">假人在 CT 室急救，標準病人在 X 光室</h1>
+      <small id="planSub">最有利：急救車與護理師隊長都在 CT 室現場</small>
+    </div>
+  </div>
+
+  <div class="pill-group" id="sceneGroup" title="切換四種急救情境狀況">
+    <button data-scene="s1" class="on">狀況一（CT 室）</button>
+    <button data-scene="s2">狀況二（X 光室）</button>
+    <button data-scene="s3a">狀況三-A（等候→CT）</button>
+    <button data-scene="s3b">狀況三-B（等候→X光）</button>
+  </div>
+
+  <div class="pill-group" id="camGroup" title="切換 3D 攝影機視角">
+    <button data-cam="auto" class="on">🎥 智慧跟拍</button>
+    <button data-cam="ct">🏥 CT 室</button>
+    <button data-cam="xray">🩻 X 光室</button>
+    <button data-cam="over">🗺️ 全場鳥瞰</button>
+  </div>
+
+  <div class="pill-group" id="planGroup" title="切換考場配置方案">
+    <button data-plan="1" class="on">方案一（B＝CT）</button>
+    <button data-plan="2">方案二（A＝CT）</button>
+  </div>
+
+  <a class="btn-top" href="character_select.html" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:#a78bfa;color:#fff">🎨 人物造型（3選1）</a>
+  <a class="btn-top btn-back" id="backLink" href="emergency.html#s1">← 返回急救預案</a>
+</header>
+
+<div id="broadcastBanner">📢 999 全院急救廣播：電腦斷層室（CT 室）發生急救事件！</div>
+
+<aside class="side-hud">
+  <div class="monitor-card">
+    <div class="monitor-head">
+      <span><i class="status-dot"></i>生理監視器／AED 監測</span>
+      <span id="rhythmTxt" style="color:#f87171">VF / 無脈搏</span>
+    </div>
+    <canvas id="ecgCanvas" width="244" height="60"></canvas>
+    <div class="vitals-row">
+      <div class="vital-box"><small>HR / 壓胸速率</small><strong id="hrVal" style="color:#4ade80">--</strong></div>
+      <div class="vital-box spo2"><small>SpO₂ (牆上 O₂)</small><strong id="spo2Val" style="color:#38bdf8">--%</strong></div>
+      <div class="vital-box etco2"><small>急救車／電擊</small><strong id="defibVal" style="color:#fbbf24">待命</strong></div>
+    </div>
+  </div>
+
+  <div class="legend-card">
+    <b>👥 3D 角色與設備圖例</b>
+    <div class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>護理師（⭐ 唯一隊長・紫刷手服）</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#1d4ed8"></span>CT 放射師 C（深藍刷手服）</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>X 光放射師 A／B（藍刷手服）</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>標準病人 SP（綠色病人服）</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#9ca3af"></span>等候區家屬（隔離保護隱私）</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>急救車（甦醒球在車上・電擊器）</div>
+  </div>
+</aside>
+
+<section class="bottom-dock">
+  <div class="cabd-track" id="cabdBar"></div>
+
+  <div class="caption-box">
+    <span class="step-tag" id="stepTag">開場</span>
+    <div class="step-text" id="stepCap">載入 3D 醫療場景中…</div>
+  </div>
+
+  <div class="ctl-row">
+    <div class="ctl-left">
+      <button class="btn-ctl" id="btnPrev">◀ 上一步</button>
+      <span class="step-counter" id="stepNo">開場</span>
+      <button class="btn-ctl primary" id="btnNext">下一步 ▶</button>
+      <button class="btn-ctl" id="btnReplay" title="重播目前步驟與語音">↻ 重播本步</button>
+    </div>
+    <div class="ctl-right">
+      <button class="btn-ctl" id="btnAuto" title="語音播畢後自動進入下一步">▶ 連續自動播放：關</button>
+      <button class="btn-ctl" id="btnMute" title="切換語音解說聲音">🔊 語音解說：開</button>
+    </div>
+  </div>
+</section>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import {
+  getSavedCharacterStyles,
+  buildStandingCharacter,
+  buildAnnieCharacter,
+  tickCharacterAnimation
+} from './characters3d.js';
+
+// ── URL 參數與初始狀態 ───────────────────────────────────────
+const qs = new URLSearchParams(location.search);
+let plan = qs.get('plan') === '2' ? 2 : 1;
+let curSceneId = ['s1', 's2', 's3a', 's3b'].includes(qs.get('scene')) ? qs.get('scene') : 's1';
+if (qs.has('embed')) {
+  document.body.classList.add('embed');
+  document.querySelectorAll('header.topbar a').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });   // 內嵌時另開分頁，不把 iframe 換掉
+}
+
+// ── Three.js 渲染器與高擬真環境設定 ─────────────────────────
+const wrap = document.getElementById('canvas-wrap');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+wrap.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f172a);
+scene.fog = new THREE.FogExp2(0x0f172a, 0.00036);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 5, 4500);
+cam.position.set(490, 620, 920);
+
+const controls = new OrbitControls(cam, renderer.domElement);
+controls.target.set(490, 25, 320);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI / 2.05;
+controls.minDistance = 110;
+controls.maxDistance = 1800;
+controls.update();
+
+// ── 燈光系統 ─────────────────────────────────────────────────
+scene.add(new THREE.HemisphereLight(0xf8fafc, 0x334155, 0.88));
+const mainLight = new THREE.DirectionalLight(0xffffff, 1.65);
+mainLight.position.set(220, 780, 680);
+mainLight.target.position.set(520, 0, 320);
+mainLight.castShadow = true;
+mainLight.shadow.mapSize.set(2048, 2048);
+Object.assign(mainLight.shadow.camera, { left: -520, right: 520, top: 450, bottom: -450, near: 100, far: 1800 });
+mainLight.shadow.bias = -0.0005;
+scene.add(mainLight, mainLight.target);
+
+const roomLightA = new THREE.PointLight(0xf0f9ff, 1.15, 480, 0.5);
+roomLightA.position.set(748, 180, 340);
+const roomLightB = new THREE.PointLight(0xfff7ed, 1.15, 480, 0.5);
+roomLightB.position.set(338, 180, 360);
+scene.add(roomLightA, roomLightB);
+
+// ── PBR 材質與醫療防滑地磚紋理 ───────────────────────────────
+const matCache = {};
+function pbr(color, rough = 0.45, metal = 0.08, extra = {}) {
+  const key = `${color}_${rough}_${metal}_${JSON.stringify(extra)}`;
+  if (!matCache[key]) {
+    matCache[key] = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra });
+  }
+  return matCache[key];
+}
+
+function makeFloorTex(baseHex, gridHex) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = baseHex;
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = gridHex;
+  g.lineWidth = 2;
+  g.strokeRect(0, 0, 256, 256);
+  for (let i = 0; i < 90; i++) {
+    g.fillStyle = i % 2 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+    g.fillRect((i * 73) % 256, (i * 41) % 256, 3, 3);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(8, 8);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+const TEX_CT_FLOOR = makeFloorTex('#f3cba5', '#e2b58b');
+const TEX_XR_FLOOR = makeFloorTex('#9dc4eb', '#84b0dc');
+const TEX_WAIT_FLOOR = makeFloorTex('#c4e0b2', '#add099');
+const TEX_HALL_FLOOR = makeFloorTex('#e2e8f0', '#cbd5e1');
+
+const venueGroup = new THREE.Group();
+const actorGroup = new THREE.Group();
+const fxGroup = new THREE.Group();
+scene.add(venueGroup, actorGroup, fxGroup);
+
+function addBox(parent, x1, z1, x2, z2, y1, y2, material, shadow = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1), material);
+  m.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+  m.castShadow = shadow;
+  m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+function addCyl(parent, x, z, r, y1, y2, material, seg = 24) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y2 - y1, seg), material);
+  m.position.set(x, (y1 + y2) / 2, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+function makeSpriteLabel(text, { size = 24, bg = 'rgba(15,23,42,0.88)', fg = '#ffffff', border = null, scale = 0.14 } = {}) {
+  const s = 3, cv = document.createElement('canvas'), g = cv.getContext('2d');
+  const font = `800 ${size * s}px "PingFang TC","Heiti TC",sans-serif`;
+  g.font = font;
+  const lines = text.split('\n');
+  const tw = Math.max(...lines.map(l => g.measureText(l).width));
+  const pad = size * s * 0.52, lh = size * s * 1.28;
+  cv.width = tw + pad * 2;
+  cv.height = lh * lines.length + pad * 1.05;
+  g.font = font;
+  g.fillStyle = bg;
+  g.beginPath();
+  g.roundRect(0, 0, cv.width, cv.height, size * s * 0.36);
+  g.fill();
+  if (border) {
+    g.lineWidth = s * 3.5;
+    g.strokeStyle = border;
+    g.stroke();
+  }
+  g.fillStyle = fg;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  lines.forEach((l, i) => g.fillText(l, cv.width / 2, pad * 0.52 + lh * (i + 0.5)));
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sp.scale.set(cv.width * scale / s, cv.height * scale / s, 1);
+  sp.renderOrder = 20;
+  return sp;
+}
+
+// ── 場景設備與建築建構 ───────────────────────────────────────
+let dynamicObjs = {};
+
+function buildHighRealismVenue(currentPlan) {
+  venueGroup.clear();
+  actorGroup.clear();
+  fxGroup.clear();
+  dynamicObjs = { o2Outlets: {}, phones: {}, doors: {} };
+
+  const roomType = currentPlan === 1 ? { A: 'xray', B: 'ct' } : { A: 'ct', B: 'xray' };
+  const ctRoom = currentPlan === 1 ? 'B' : 'A';
+  const xrRoom = currentPlan === 1 ? 'A' : 'B';
+  dynamicObjs.ctRoom = ctRoom;
+  dynamicObjs.xrRoom = xrRoom;
+
+  // 1. 底座與醫療地坪
+  addBox(venueGroup, 145, 125, 925, 520, -10, -0.5, pbr(0x1e293b, 0.85, 0.1), false);
+  addBox(venueGroup, 160, 158, 194, 458, -0.5, 0.2, pbr(0x334155, 0.8), false);
+  addBox(venueGroup, 876, 158, 898, 458, -0.5, 0.2, pbr(0x334155, 0.8), false);
+
+  const waitFloorMat = new THREE.MeshStandardMaterial({ map: TEX_WAIT_FLOOR, roughness: 0.45, metalness: 0.05 });
+  const hallFloorMat = new THREE.MeshStandardMaterial({ map: TEX_HALL_FLOOR, roughness: 0.4, metalness: 0.05 });
+  const ctFloorMat   = new THREE.MeshStandardMaterial({ map: TEX_CT_FLOOR, roughness: 0.32, metalness: 0.08 });
+  const xrFloorMat   = new THREE.MeshStandardMaterial({ map: TEX_XR_FLOOR, roughness: 0.35, metalness: 0.08 });
+
+  addBox(venueGroup, 210, 166, 466, 266, 0, 0.8, waitFloorMat, false);
+  addBox(venueGroup, 418, 266, 466, 300, 0, 0.8, waitFloorMat, false);
+  addBox(venueGroup, 466, 198, 635, 248, 0, 0.8, hallFloorMat, false);
+  addBox(venueGroup, 210, 266, 466, 458, 0, 0.8, roomType.B === 'ct' ? ctFloorMat : xrFloorMat, false);
+  addBox(venueGroup, 635, 166, 860, 458, 0, 0.8, roomType.A === 'ct' ? ctFloorMat : xrFloorMat, false);
+
+  addBox(venueGroup, 482, 260, 619, 458, 0, 14, pbr(0x475569, 0.7));
+  addBox(venueGroup, 482, 166, 620, 182, 0, 14, pbr(0x475569, 0.7));
+
+  // 2. 醫院牆體與防撞扶手腰帶
+  const WH = 44, wallMat = pbr(0xe2e8f0, 0.6, 0.05), railMat = pbr(0x3b82f6, 0.4, 0.15);
+  const buildWall = (x1, z1, x2, z2, h = WH) => {
+    addBox(venueGroup, x1, z1, x2, z2, 0, h, wallMat);
+    if (h >= 24) addBox(venueGroup, x1 - 0.4, z1 - 0.4, x2 + 0.4, z2 + 0.4, 15, 18.5, railMat, false);
+  };
+  buildWall(194, 158, 688, 166);
+  buildWall(735, 158, 876, 166);
+  buildWall(194, 158, 210, 458);
+  buildWall(860, 158, 876, 458);
+  buildWall(194, 452, 876, 460, 6);
+  buildWall(466, 158, 482, 199);
+  buildWall(466, 248, 482, 458);
+  buildWall(619, 158, 635, 199);
+  buildWall(619, 248, 635, 458);
+  buildWall(482, 182, 619, 198);
+  buildWall(482, 248, 619, 260);
+  buildWall(290, 266, 418, 280);
+
+  const diagWall = new THREE.Mesh(new THREE.BoxGeometry(62, WH, 14), wallMat);
+  diagWall.position.set(442, WH / 2, 288);
+  diagWall.rotation.y = -29.7 * Math.PI / 180;
+  diagWall.castShadow = diagWall.receiveShadow = true;
+  venueGroup.add(diagWall);
+
+  // 北側進出大門與封閉外門
+  addBox(venueGroup, 688, 158, 735, 166, 34, WH, wallMat);
+  const doorSign = makeSpriteLabel('🚪 考場進出大門', { size: 17, bg: '#dc2626', fg: '#fff' });
+  doorSign.position.set(711, 56, 155);
+  venueGroup.add(doorSign);
+
+  addBox(venueGroup, 318, 154, 361, 158, 4, 34, pbr(0xdc2626, 0.4));
+  const sealSign = makeSpriteLabel('⛔ 外門封閉', { size: 14, bg: '#7f1d1d', fg: '#fecaca' });
+  sealSign.position.set(340, 48, 152);
+  venueGroup.add(sealSign);
+
+  // 檢查室 A 與 B 的隔離拉門（在狀況三-A / 三-B 關門隔離家屬時顯示）
+  const doorMat = new THREE.MeshPhysicalMaterial({ color: 0x92400e, transparent: true, opacity: 0.82, roughness: 0.25 });
+  const doorA = new THREE.Group();
+  addBox(doorA, 624, 199, 630, 248, 0, 38, doorMat);
+  const doorALbl = makeSpriteLabel('🚪 已關門隔離家屬', { size: 15, bg: '#92400e', fg: '#fff', border: '#fcd34d' });
+  doorALbl.position.set(627, 50, 223);
+  doorA.add(doorALbl);
+  doorA.visible = false;
+
+  const doorB = new THREE.Group();
+  addBox(doorB, 210, 267, 290, 273, 0, 38, doorMat);
+  const doorBLbl = makeSpriteLabel('🚪 已關門隔離家屬', { size: 15, bg: '#92400e', fg: '#fff', border: '#fcd34d' });
+  doorBLbl.position.set(250, 50, 270);
+  doorB.add(doorBLbl);
+  doorB.visible = false;
+  venueGroup.add(doorA, doorB);
+  dynamicObjs.doors = { A: doorA, B: doorB };
+
+  // 等候區排椅（如果是狀況三，留出推床停放空間）
+  const isWaitScene = curSceneId.startsWith('s3');
+  for (let i = isWaitScene ? 2 : 0; i < 4; i++) {
+    for (const z of [192, 232]) {
+      const x = 300 + i * 36;
+      addBox(venueGroup, x + 2, z + 4, x + 24, z + 16, 0, 10, pbr(0x64748b, 0.3, 0.7));
+      addBox(venueGroup, x, z, x + 26, z + 19, 10, 14, pbr(0x0284c7, 0.45, 0.1));
+      addBox(venueGroup, x, z + 15, x + 26, z + 19, 14, 29, pbr(0x0369a1, 0.45, 0.1));
+    }
+  }
+
+  // 3. 兩間檢查室設備
+  const FOOTPRINT = { A: { x1: 706, z1: 356, x2: 788, z2: 453 }, B: { x1: 296, z1: 356, x2: 378, z2: 453 } };
+  const CONSOLE   = { A: [729, 272, 815, 302], B: [327, 286, 413, 316] };
+  const MONITOR   = { A: [668, 382], B: [414, 392] };
+  const CART_HOME = { A: [832, 422], B: [242, 422] };
+  const O2_OUTLET = { A: [856, 355], B: [214, 355] };
+
+  for (const room of ['A', 'B']) {
+    const f = FOOTPRINT[room], t = roomType[room];
+    const [cx1, cz1, cx2, cz2] = CONSOLE[room];
+    const [ox, oz] = O2_OUTLET[room];
+
+    // 牆上氧氣出口面板 O₂（兩間檢查室皆有）
+    const panelX = room === 'A' ? 857 : 213;
+    addBox(venueGroup, panelX - 2, oz - 18, panelX + 2, oz + 18, 22, 38, pbr(0xf8fafc, 0.3, 0.2));
+    addCyl(venueGroup, panelX + (room === 'A' ? -4 : 4), oz - 7, 3.2, 23, 33, pbr(0x0ea5e9, 0.2, 0.3));
+    addCyl(venueGroup, panelX + (room === 'A' ? -4 : 4), oz + 7, 3.5, 20, 31, pbr(0xfacc15, 0.3, 0.2));
+    const o2Lbl = makeSpriteLabel('牆上 O₂ 氧氣出口', { size: 14, bg: '#0284c7', fg: '#fff' });
+    o2Lbl.position.set(panelX + (room === 'A' ? -16 : 16), 47, oz);
+    venueGroup.add(o2Lbl);
+    dynamicObjs.o2Outlets[room] = new THREE.Vector3(room === 'A' ? 853 : 217, 29, oz - 7);
+
+    // 控制台＋防輻射鉛玻璃＋雙螢幕＋999 手機
+    addBox(venueGroup, cx1, cz1, cx2, cz2, 0, 27, pbr(0x9a7b56, 0.55, 0.05));
+    addBox(venueGroup, cx1 - 2, cz1 - 2, cx2 + 2, cz2 + 1, 27, 29.5, pbr(0xf1f5f9, 0.3, 0.1));
+    const leadGlass = new THREE.Mesh(
+      new THREE.BoxGeometry(cx2 - cx1 + 4, 28, 2.2),
+      new THREE.MeshPhysicalMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.32, roughness: 0.1, transmission: 0.6 })
+    );
+    leadGlass.position.set((cx1 + cx2) / 2, 43, cz2 + 0.5);
+    venueGroup.add(leadGlass);
+
+    const midX = (cx1 + cx2) / 2;
+    for (const dx of [-21, 5]) {
+      addBox(venueGroup, midX + dx - 10, cz1 + 9, midX + dx + 10, cz1 + 11.5, 34, 49, pbr(0x0f172a, 0.2, 0.4));
+      addBox(venueGroup, midX + dx - 9, cz1 + 11.6, midX + dx + 9, cz1 + 12, 35, 48,
+        new THREE.MeshBasicMaterial({ color: t === 'ct' ? 0x38bdf8 : 0x60a5fa }));
+      addBox(venueGroup, midX + dx - 2, cz1 + 8, midX + dx + 2, cz1 + 12, 29, 34, pbr(0x64748b, 0.3, 0.6));
+    }
+    addBox(venueGroup, midX + 25, cz1 + 12, midX + 34, cz1 + 22, 29.5, 31.5, pbr(0xdc2626, 0.2, 0.5));
+    dynamicObjs.phones[room] = new THREE.Vector3(midX + 29.5, 32, cz1 + 17);
+
+    const conLbl = makeSpriteLabel(`${t === 'ct' ? 'CT' : 'X 光'} 控制台＋999 手機`, { size: 15, bg: '#1e293b', fg: '#f8fafc', border: '#64748b' });
+    conLbl.position.set(midX, 66, cz1 + 14);
+    venueGroup.add(conLbl);
+
+    if (t === 'ct') {
+      buildCTSuite(f, MONITOR[room], CART_HOME[room], room);
+    } else {
+      buildXraySuite(f, room);
+    }
+  }
+
+  for (const room of ['A', 'B']) {
+    const isCT = roomType[room] === 'ct';
+    const x = room === 'A' ? 748 : 338;
+    const lbl = makeSpriteLabel(`檢查室 ${room}｜${isCT ? '電腦斷層室 (CT)' : '一般 X 光室'}`, {
+      size: 23,
+      bg: isCT ? 'rgba(124,45,18,0.92)' : 'rgba(30,58,138,0.92)',
+      fg: '#ffffff',
+      border: isCT ? '#fb923c' : '#60a5fa'
+    });
+    lbl.position.set(x, 14, 492);
+    venueGroup.add(lbl);
+  }
+}
+
+function buildCTSuite(f, monPos, cartPos, roomCode) {
+  const cx = (f.x1 + f.x2) / 2;
+  const gantryZ = f.z2 - 30;
+
+  // CT Gantry
+  const gw = 96, gh = 84, gd = 26, r = 14;
+  const s = new THREE.Shape();
+  s.moveTo(-gw / 2 + r, 0);
+  s.lineTo(gw / 2 - r, 0);
+  s.quadraticCurveTo(gw / 2, 0, gw / 2, r);
+  s.lineTo(gw / 2, gh - r);
+  s.quadraticCurveTo(gw / 2, gh, gw / 2 - r, gh);
+  s.lineTo(-gw / 2 + r, gh);
+  s.quadraticCurveTo(-gw / 2, gh, -gw / 2, gh - r);
+  s.lineTo(-gw / 2, r);
+  s.quadraticCurveTo(-gw / 2, 0, -gw / 2 + r, 0);
+  const hole = new THREE.Path();
+  hole.absarc(0, 45, 24, 0, Math.PI * 2, true);
+  s.holes.push(hole);
+
+  const gantryGeo = new THREE.ExtrudeGeometry(s, { depth: gd, bevelEnabled: true, bevelSize: 2.5, bevelThickness: 2.5, curveSegments: 48 });
+  const gantryMesh = new THREE.Mesh(gantryGeo, pbr(0xf8fafc, 0.22, 0.12));
+  gantryMesh.position.set(cx, 0, gantryZ);
+  gantryMesh.castShadow = gantryMesh.receiveShadow = true;
+  venueGroup.add(gantryMesh);
+
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(26, 2.2, 16, 64), pbr(0x0284c7, 0.2, 0.4, { emissive: 0x0369a1, emissiveIntensity: 0.35 }));
+  ring.position.set(cx, 45, gantryZ - 2.2);
+  venueGroup.add(ring);
+
+  // CT 檢查床底座與天板
+  addBox(venueGroup, cx - 11, f.z1 - 4, cx + 11, f.z1 + 48, 0, 25, pbr(0xcbd5e1, 0.4, 0.2));
+  const couchGroup = new THREE.Group();
+  couchGroup.position.set(cx, 26, curSceneId === 's1' ? f.z1 + 36 : f.z1 + 14);
+  addBox(couchGroup, -13, -44, 13, 44, 0, 3.5, pbr(0xf8fafc, 0.25, 0.08));
+  addBox(couchGroup, -11.5, -40, 11.5, 36, 3.5, 5.5, pbr(0x38bdf8, 0.5, 0.05));
+  addBox(couchGroup, -8, -42, 8, -30, 5.5, 8.5, pbr(0xffffff, 0.4));
+  venueGroup.add(couchGroup);
+
+  // 對比劑注射器＋點滴架
+  const injX = cx + 34, injZ = f.z1 + 12;
+  addCyl(venueGroup, injX, injZ, 2.2, 0, 54, pbr(0x94a3b8, 0.25, 0.8));
+  addBox(venueGroup, injX - 6, injZ - 5, injX + 6, injZ + 5, 54, 65, pbr(0x1e293b, 0.3, 0.4));
+  addCyl(venueGroup, injX - 2.5, injZ, 1.8, 65, 73, pbr(0x38bdf8, 0.15, 0.1));
+  addCyl(venueGroup, injX + 2.5, injZ, 1.8, 65, 73, pbr(0xe2e8f0, 0.15, 0.1));
+
+  const ivX = cx + 48, ivZ = f.z1 + 14;
+  addCyl(venueGroup, ivX, ivZ, 1.2, 0, 82, pbr(0xe2e8f0, 0.2, 0.85));
+  addBox(venueGroup, ivX - 6, ivZ - 1, ivX + 6, ivZ + 1, 80, 82, pbr(0xe2e8f0, 0.2, 0.85));
+  addBox(venueGroup, ivX - 4.5, ivZ - 2.5, ivX - 1, ivZ + 2.5, 67, 78, pbr(0xbae6fd, 0.1, 0.1, { transparent: true, opacity: 0.82 }));
+
+  // 生理監視器
+  const [mx, mz] = monPos;
+  addCyl(venueGroup, mx, mz, 1.8, 0, 54, pbr(0x94a3b8, 0.25, 0.8));
+  addBox(venueGroup, mx - 11, mz - 4, mx + 11, mz + 4, 54, 70, pbr(0x0f172a, 0.3, 0.4));
+  addBox(venueGroup, mx - 9.5, mz + 4.1, mx + 9.5, mz + 4.6, 56, 68, new THREE.MeshBasicMaterial({ color: 0x22c55e }));
+
+  // 急救車（全場唯一一台，初始在 CT 室）
+  const cartGroup = new THREE.Group();
+  cartGroup.position.set(cartPos[0], 0, cartPos[1]);
+  for (const [wx, wz] of [[-12, -9], [12, -9], [-12, 9], [12, 9]]) {
+    addCyl(cartGroup, wx, wz, 2.5, 0, 4, pbr(0x1e293b, 0.7));
+  }
+  addBox(cartGroup, -15, -11, 15, 11, 4, 42, pbr(0xdc2626, 0.3, 0.15));
+  for (const y of [11, 19, 27, 35]) {
+    addBox(cartGroup, -13.5, 11.1, 13.5, 12, y, y + 5.5, pbr(0xfef2f2, 0.35, 0.1));
+    addBox(cartGroup, -4, 12.1, 4, 12.6, y + 2, y + 3.5, pbr(0x94a3b8, 0.2, 0.8));
+  }
+  addBox(cartGroup, -16, -12, 16, 12, 42, 44.5, pbr(0xe2e8f0, 0.2, 0.8));
+  addBox(cartGroup, -13, -7, 1, 6, 44.5, 55, pbr(0x1e293b, 0.3, 0.4));
+  addBox(cartGroup, -11, 6.1, -1, 6.5, 46.5, 53, new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+
+  const cartAmbu = new THREE.Group();
+  cartAmbu.position.set(8, 48, 0);
+  const bagSphere = new THREE.Mesh(new THREE.SphereGeometry(4.2, 20, 16), pbr(0x06b6d4, 0.2, 0.1, { transparent: true, opacity: 0.85 }));
+  bagSphere.scale.set(1.4, 0.9, 0.9);
+  cartAmbu.add(bagSphere);
+  cartGroup.add(cartAmbu);
+
+  const cartLbl = makeSpriteLabel('🚑 急救車\n(甦醒球＋電擊器)', { size: 14, bg: '#dc2626', fg: '#fff' });
+  cartLbl.position.set(0, 68, 0);
+  cartGroup.add(cartLbl);
+  venueGroup.add(cartGroup);
+
+  dynamicObjs.couchGroup = couchGroup;
+  dynamicObjs.couchInZ = f.z1 + 36;
+  dynamicObjs.couchOutZ = f.z1 + 10;
+  dynamicObjs.cartGroup = cartGroup;
+  dynamicObjs.cartAmbu = cartAmbu;
+  dynamicObjs.cartHomePos = new THREE.Vector3(cartPos[0], 0, cartPos[1]);
+}
+
+function buildXraySuite(f, roomCode) {
+  const cx = (f.x1 + f.x2) / 2;
+  const xrTableGroup = new THREE.Group();
+  xrTableGroup.position.set(cx, 25, f.z1 + 16);
+  addBox(venueGroup, cx - 14, f.z1, cx + 14, f.z2 - 24, 0, 25, pbr(0xcbd5e1, 0.4, 0.2));
+  addBox(xrTableGroup, -16, -38, 16, 38, 0, 3.5, pbr(0xf8fafc, 0.3, 0.1));
+  addBox(xrTableGroup, -14, -35, 14, 34, 3.5, 5.2, pbr(0x60a5fa, 0.5, 0.05));
+  venueGroup.add(xrTableGroup);
+  dynamicObjs.xrTableGroup = xrTableGroup;
+
+  // X 光球管立柱與橫臂（若假人在 X 光室急救，球管移至偏南側避免遮擋視線）
+  const colX = cx - 34;
+  addBox(venueGroup, colX - 4, f.z1 + 4, colX + 4, f.z2 - 4, 0, 3, pbr(0x64748b, 0.3, 0.7));
+  addBox(venueGroup, colX - 5, f.z1 + 52, colX + 5, f.z1 + 62, 3, 112, pbr(0xe2e8f0, 0.3, 0.3));
+  addBox(venueGroup, colX, f.z1 + 53, cx + 4, f.z1 + 61, 94, 102, pbr(0xe2e8f0, 0.3, 0.3));
+  addBox(venueGroup, cx - 9, f.z1 + 48, cx + 11, f.z1 + 66, 74, 94, pbr(0xf8fafc, 0.25, 0.2));
+
+  const bx = roomCode === 'A' ? 846 : 224, dir = roomCode === 'A' ? -1 : 1;
+  addBox(venueGroup, bx - 4, 404, bx + 4, 416, 0, 118, pbr(0xcbd5e1, 0.35, 0.2));
+  addBox(venueGroup, bx + dir * 4 - 3, 392, bx + dir * 4 + 3, 428, 42, 92, pbr(0x1e293b, 0.3, 0.2));
+}
+
+// ── 等候區移動推床（Stretcher，狀況三-A / 三-B 專用）──────────
+function createHospitalStretcher() {
+  const g = new THREE.Group();
+  // 四輪與不鏽鋼底架
+  for (const [wx, wz] of [[-10, -26], [10, -26], [-10, 26], [10, 26]]) {
+    addCyl(g, wx, wz, 2.5, 0, 4, pbr(0x1e293b, 0.7));
+    addCyl(g, wx * 0.85, wz * 0.85, 1.2, 4, 24, pbr(0xcbd5e1, 0.25, 0.8));
+  }
+  addBox(g, -12, -32, 12, 32, 24, 27, pbr(0xf8fafc, 0.3, 0.2));
+  // 墨綠色推床軟墊＋เหลือง急救硬板（CPR board）
+  addBox(g, -11, -30, 11, 30, 27, 29.5, pbr(0x10b981, 0.5, 0.05));
+  addBox(g, -10, -24, 10, 8, 29.5, 30.8, pbr(0xfacc15, 0.35, 0.1)); // 黃色 CPR 急救硬板
+  // 兩側不鏽鋼護欄
+  addBox(g, -12.2, -18, -11.2, 18, 27, 34, pbr(0xe2e8f0, 0.2, 0.85));
+  addBox(g, 11.2, -18, 12.2, 18, 27, 34, pbr(0xe2e8f0, 0.2, 0.85));
+  return g;
+}
+
+// ── 產生各情境角色與推床綁定（自動讀取選角中心儲存的 A/B/C 造型款式）──
+let actors = {};
+let o2TubeLine = null;
+let cprPulseRing = null;
+
+function spawnActorsForScene() {
+  actorGroup.clear();
+  fxGroup.clear();
+  actors = {};
+
+  const styles = getSavedCharacterStyles();
+
+  const annie = buildAnnieCharacter(THREE, { variant: styles.mk, makeLabelFn: makeSpriteLabel });
+  actors.mk = annie;
+
+  if (curSceneId === 's1') {
+    dynamicObjs.couchGroup.add(annie);
+  } else if (curSceneId === 's2') {
+    dynamicObjs.xrTableGroup.add(annie);
+  } else {
+    // 狀況三-A / 三-B：假人躺在等候區的移動推床上
+    const stretcher = createHospitalStretcher();
+    annie.position.set(0, 25, 0);
+    stretcher.add(annie);
+    actorGroup.add(stretcher);
+    dynamicObjs.stretcher = stretcher;
+  }
+
+  actors.rn   = buildStandingCharacter(THREE, { role: 'rn',   variant: styles.rn, name: '⭐ 護理師（隊長）', isLeader: true, makeLabelFn: makeSpriteLabel });
+  actors.rtc  = buildStandingCharacter(THREE, { role: 'rtc',  variant: styles.rt, name: 'CT 放射師 C',       uniformColor: 0x1d4ed8, makeLabelFn: makeSpriteLabel });
+  actors.rta  = buildStandingCharacter(THREE, { role: 'rta',  variant: styles.rt, name: 'X 光放射師 A',      uniformColor: 0x2563eb, makeLabelFn: makeSpriteLabel });
+  actors.rtb  = buildStandingCharacter(THREE, { role: 'rtb',  variant: styles.rt, name: 'X 光放射師 B',      uniformColor: 0x2563eb, makeLabelFn: makeSpriteLabel });
+  actors.sp   = buildStandingCharacter(THREE, { role: 'sp',   variant: styles.sp, name: '標準病人 SP',       makeLabelFn: makeSpriteLabel });
+  actors.fam  = buildStandingCharacter(THREE, { role: 'fam',  variant: 'A',       name: '家屬（等候區）',    makeLabelFn: makeSpriteLabel });
+  actors.team = buildStandingCharacter(THREE, { role: 'team', variant: 'C',       name: '🩺 999 急救小組',   makeLabelFn: makeSpriteLabel });
+
+  actors.fam.visible = curSceneId.startsWith('s3');
+  actors.team.visible = false;
+
+  for (const k of ['rn', 'rtc', 'rta', 'rtb', 'sp', 'fam', 'team']) {
+    actorGroup.add(actors[k]);
+  }
+
+  cprPulseRing = new THREE.Mesh(
+    new THREE.RingGeometry(14, 18, 40),
+    new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })
+  );
+  cprPulseRing.rotation.x = -Math.PI / 2;
+  cprPulseRing.visible = false;
+  fxGroup.add(cprPulseRing);
+}
+
+// ── 計算各房間與走廊動線座標 ─────────────────────────────────
+function getRoomCoords(roomCode) {
+  const f = roomCode === 'A' ? { x1: 706, z1: 356, x2: 788, z2: 453 } : { x1: 296, z1: 356, x2: 378, z2: 453 };
+  const con = roomCode === 'A' ? [729, 272, 815, 302] : [327, 286, 413, 316];
+  const cx = (f.x1 + f.x2) / 2;
+  // 若是推床推進檢查室（s3a / s3b），停在控制台與儀器之間的寬敞急救區，不與原檢查床重疊
+  const isStretcherDest = (curSceneId === 's3a' && roomCode === dynamicObjs.ctRoom) ||
+                          (curSceneId === 's3b' && roomCode === dynamicObjs.xrRoom);
+  const bedX = isStretcherDest ? (roomCode === 'A' ? 682 : 262) : cx;
+  const bedZ = isStretcherDest ? 350 : f.z1 + 12;
+
+  return {
+    roomCode, f, cx, bedX, bedZ,
+    bedLook:     [bedX, bedZ],
+    staffL:      [cx - 30, f.z1 - 42],
+    staffR:      [cx + 26, f.z1 - 42],
+    phoneSpot:   [(con[0] + con[2]) / 2 + 26, con[1] - 6],
+    bedsideR:    [bedX + 21, bedZ - 4],
+    bedsideL:    [bedX - 21, bedZ - 4],
+    bedsideHead: [bedX,      bedZ - 32],
+    rnCommand:   [bedX + 32, bedZ - 26],
+    cartBedside: new THREE.Vector3(bedX - 36, 0, bedZ - 16),
+    spSpot:      [cx + 26, f.z1 + 24],
+    spCareSpot:  [cx + 26, f.z1]
+  };
+}
+
+function getCorridorRoute(fromZone, toZone) {
+  const WP = {
+    A:    [682, 320],
+    doorA:[638, 223],
+    hall: [550, 223],
+    waitE:[455, 223],
+    wait: [340, 232],
+    doorB:[260, 268],
+    B:    [262, 330]
+  };
+  const key = `${fromZone}>${toZone}`;
+  const map = {
+    'A>B':    [WP.A, WP.doorA, WP.hall, WP.waitE, WP.wait, WP.doorB, WP.B],
+    'B>A':    [WP.B, WP.doorB, WP.wait, WP.waitE, WP.hall, WP.doorA, WP.A],
+    'A>wait': [WP.A, WP.doorA, WP.hall, WP.waitE, [305, 224]],
+    'B>wait': [WP.B, WP.doorB, [285, 232]],
+    'wait>A': [[285, 224], WP.waitE, WP.hall, WP.doorA, [682, 350]],
+    'wait>B': [[268, 224], WP.doorB, [262, 350]],
+    'entry>A':[[711, 130], [711, 230], [775, 330]],
+    'entry>B':[[711, 130], WP.doorA, WP.hall, WP.waitE, WP.wait, WP.doorB, [368, 330]]
+  };
+  return map[key] || [];
+}
+
+// ── 3D 特效輔助函式 ──────────────────────────────────────────
+let activeBubbles = [];
+function showBubble3D(actor, text, bg = '#ffffff', fg = '#0f172a') {
+  const sp = makeSpriteLabel(`💬 ${text}`, { size: 17, bg, fg, border: '#3b82f6', scale: 0.14 });
+  sp.position.set(0, 75, 0);
+  actor.add(sp);
+  activeBubbles.push(sp);
+}
+function clearBubbles3D() {
+  for (const b of activeBubbles) if (b.parent) b.parent.remove(b);
+  activeBubbles = [];
+}
+
+function setLeaderHighlight(who) {
+  for (const k of ['rn', 'rta', 'rtb', 'rtc']) {
+    if (actors[k]) actors[k].userData.leaderRing.visible = (k === who);
+  }
+}
+
+function triggerBroadcastWaves(originVec) {
+  if (!originVec) return;
+  for (let i = 0; i < 3; i++) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(6, 10, 48),
+      new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(originVec.x, 34, originVec.z);
+    fxGroup.add(ring);
+    const t0 = performance.now() + i * 350;
+    const animWave = now => {
+      if (now < t0) { requestAnimationFrame(animWave); return; }
+      const k = Math.min(1, (now - t0) / 1400);
+      const s = 1 + k * 28;
+      ring.scale.set(s, s, 1);
+      ring.material.opacity = (1 - k) * 0.85;
+      if (k < 1) requestAnimationFrame(animWave);
+      else fxGroup.remove(ring);
+    };
+    requestAnimationFrame(animWave);
+  }
+}
+
+async function triggerDefibShock3D(posVec) {
+  const flashLight = new THREE.PointLight(0xfef08a, 8, 260);
+  flashLight.position.set(posVec.x, 55, posVec.z);
+  fxGroup.add(flashLight);
+
+  const boltLbl = makeSpriteLabel('⚡ 200J 雙向波電擊放電！', { size: 21, bg: '#facc15', fg: '#0f172a', border: '#dc2626', scale: 0.155 });
+  boltLbl.position.set(posVec.x, 72, posVec.z);
+  fxGroup.add(boltLbl);
+
+  for (let i = 0; i < 6; i++) {
+    flashLight.intensity = i % 2 === 0 ? 10 : 0.5;
+    await new Promise(r => setTimeout(r, 140));
+  }
+  fxGroup.remove(flashLight);
+  fxGroup.remove(boltLbl);
+}
+
+function showOxygenTube(roomCode, headXZ) {
+  if (o2TubeLine) { fxGroup.remove(o2TubeLine); o2TubeLine = null; }
+  if (!roomCode || !headXZ) return;
+  const p0 = dynamicObjs.o2Outlets[roomCode];
+  const p2 = new THREE.Vector3(headXZ[0], 39, headXZ[1] + 8);
+  const p1 = new THREE.Vector3((p0.x + p2.x) / 2, 52, (p0.z + p2.z) / 2);
+  const curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+  const tubeGeo = new THREE.TubeGeometry(curve, 32, 1.15, 10, false);
+  o2TubeLine = new THREE.Mesh(tubeGeo, pbr(0x0ea5e9, 0.25, 0.1, { emissive: 0x0284c7, emissiveIntensity: 0.4 }));
+  fxGroup.add(o2TubeLine);
+}
+
+// ── 補間動畫與移動工具 ───────────────────────────────────────
+let stepToken = 0;
+const easeInOut = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+
+function tween(ms, fn, myToken = stepToken) {
+  return new Promise(res => {
+    if (!ms || ms <= 0) { fn(1); return res(); }
+    const t0 = performance.now();
+    const tick = now => {
+      if (myToken !== stepToken) return res();
+      const k = Math.min(1, (now - t0) / ms);
+      fn(easeInOut(k));
+      if (k < 1) requestAnimationFrame(tick);
+      else res();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+function setActorPos(actor, [x, z], lookAtXZ = null) {
+  actor.position.set(x, 0, z);
+  if (lookAtXZ) {
+    const dx = lookAtXZ[0] - x, dz = lookAtXZ[1] - z;
+    if (Math.hypot(dx, dz) > 0.5) actor.rotation.y = Math.atan2(dx, dz);
+  }
+}
+
+async function moveActor3D(actor, toXZ, ms, lookAtEnd = null, tok = stepToken) {
+  const fromX = actor.position.x, fromZ = actor.position.z;
+  const dx = toXZ[0] - fromX, dz = toXZ[1] - fromZ;
+  if (Math.hypot(dx, dz) > 1) actor.rotation.y = Math.atan2(dx, dz);
+  actor.userData.pose = 'walk';
+  await tween(ms, k => {
+    actor.position.set(fromX + dx * k, 0, fromZ + dz * k);
+  }, tok);
+  actor.userData.pose = 'idle';
+  if (lookAtEnd) {
+    actor.rotation.y = Math.atan2(lookAtEnd[0] - toXZ[0], lookAtEnd[1] - toXZ[1]);
+  }
+}
+
+function pointAlongPolyline(pts, k) {
+  const segs = [];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    segs.push(d);
+    total += d;
+  }
+  let t = k * total;
+  for (let i = 0; i < segs.length; i++) {
+    if (t <= segs[i] || i === segs.length - 1) {
+      const f = segs[i] ? Math.min(1, t / segs[i]) : 1;
+      const nx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f;
+      const nz = pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f;
+      const ang = Math.atan2(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+      return [nx, nz, ang];
+    }
+    t -= segs[i];
+  }
+  const last = pts[pts.length - 1];
+  return [last[0], last[1], 0];
+}
+
+async function moveActorPath3D(actor, pts, ms, lookAtEnd = null, tok = stepToken) {
+  const full = [[actor.position.x, actor.position.z], ...pts];
+  actor.userData.pose = 'walk';
+  await tween(ms, k => {
+    const [nx, nz, ang] = pointAlongPolyline(full, k);
+    actor.position.set(nx, 0, nz);
+    actor.rotation.y = ang;
+  }, tok);
+  actor.userData.pose = 'idle';
+  if (lookAtEnd) {
+    const last = pts[pts.length - 1];
+    actor.rotation.y = Math.atan2(lookAtEnd[0] - last[0], lookAtEnd[1] - last[1]);
+  }
+}
+
+// 護理師推急救車跨區移動
+async function pushCartAlongPath3D(rnActor, cartGroup, pts, endCartVec, endRnXZ, ms, tok = stepToken) {
+  const fullCart = [[cartGroup.position.x, cartGroup.position.z], ...pts, [endCartVec.x, endCartVec.z]];
+  rnActor.userData.pose = 'walk';
+  await tween(ms, k => {
+    const [cx, cz, ang] = pointAlongPolyline(fullCart, k);
+    cartGroup.position.set(cx, 0, cz);
+    cartGroup.rotation.y = ang;
+    rnActor.position.set(cx - Math.sin(ang) * 18, 0, cz - Math.cos(ang) * 18);
+    rnActor.rotation.y = ang;
+  }, tok);
+  cartGroup.rotation.y = 0;
+  await moveActor3D(rnActor, endRnXZ, 550, [endCartVec.x, endCartVec.z + 20], tok);
+}
+
+// 兩人合力推等候區病床進入檢查室
+async function pushStretcherPath3D(stretcher, actor1, actor2, pts, endA1, endA2, bedLook, ms, tok = stepToken) {
+  const full = [[stretcher.position.x, stretcher.position.z], ...pts];
+  actor1.userData.pose = 'walk';
+  actor2.userData.pose = 'walk';
+  await tween(ms, k => {
+    const [sx, sz, ang] = pointAlongPolyline(full, k);
+    stretcher.position.set(sx, 0, sz);
+    actor1.position.set(sx + 18, 0, sz + 8);
+    actor2.position.set(sx - 18, 0, sz - 18);
+    actor1.rotation.y = ang;
+    actor2.rotation.y = ang;
+  }, tok);
+  await Promise.all([
+    moveActor3D(actor1, endA1, 500, bedLook, tok),
+    moveActor3D(actor2, endA2, 500, bedLook, tok)
+  ]);
+}
+
+// ── 四大急救狀況完整劇本資料庫 ───────────────────────────────
+const SCENARIO_META = {
+  s1: {
+    badge: '狀況一 3D',
+    title: '假人在 CT 室急救，標準病人在 X 光室',
+    sub: '最有利：急救車與護理師隊長都在 CT 室現場',
+    steps: [
+      { t: '開場', audio: 'audio/s1_0.mp3', cap: '狀況一：模擬假人在 <b>CT 室</b>需要急救，標準病人在 <b>X 光室</b>。<b>急救車和護理師都在現場</b>，最有利。', rhythm: 'VF / 無脈搏', hr: '--', spo2: '--%', defib: 'CT 室待命' },
+      { t: '叫：叫喚', audio: 'audio/s1_1.mp3', cap: 'CT 放射師<b>拍肩、大聲呼喚</b>，10 秒內檢查<b>呼吸與頸動脈</b> → 沒有反應、沒有呼吸。', rhythm: 'VF 心室顫動', hr: '0 (OHCA)', spo2: '--%', defib: 'CT 室待命' },
+      { t: '叫：叫人', audio: 'audio/s1_2.mp3', cap: '<b>護理師擔任隊長</b>，用控制台手機撥 <b>999</b>，說出地點「CT 室」。全院廣播，X 光室也會收到。', rhythm: 'VF 心室顫動', hr: '0 (呼救中)', spo2: '--%', defib: 'CT 室待命' },
+      { t: 'C 胸外按壓', audio: 'audio/s1_3.mp3', cap: 'CT 放射師先<b>口述「退床」</b>把病人移出機架，<b>立刻壓胸</b>。', rhythm: 'CPR 壓胸波', hr: '110 次/分', spo2: '82%', defib: '待命' },
+      { t: 'A 打開呼吸道', audio: 'audio/s1_4.mp3', cap: '護理師把<b>急救車推到床邊</b>，在病人頭側<b>壓額抬下巴</b>。', rhythm: 'CPR 壓胸波', hr: '110 次/分', spo2: '85%', defib: '推至床邊' },
+      { t: 'B 人工呼吸', audio: 'audio/s1_5.mp3', cap: '護理師從急救車<b>拿出甦醒球</b>，接上 CT 室<b>牆上氧氣</b>；壓胸 30 下、通氣 2 次。', rhythm: 'CPR 30:2', hr: '110 次/分', spo2: '94%', defib: '準備貼片' },
+      { t: 'X 光室支援', audio: 'audio/s1_6.mp3', cap: 'X 光放射師 <b>A 聽到廣播來支援</b>，接手甦醒球通氣；<b>B 留守 X 光室</b>照顧標準病人。', rhythm: 'CPR 30:2', hr: '112 次/分', spo2: '96%', defib: '分析準備' },
+      { t: 'D 電擊', audio: 'audio/s1_7.mp3', cap: '<b>護理師貼電擊片</b>、判讀心律，喊「<b>大家離開</b>」後放電；放電後<b>立刻接著壓胸</b>。', rhythm: '⚡ 200J 電擊 → CPR', hr: '115 次/分', spo2: '97%', defib: '200J 已放電' },
+      { t: '等待支援・ISBAR 交班', audio: 'audio/s1_8.mp3', cap: '兩位放射師每 2 分鐘<b>換手壓胸</b>（<b>對比劑過敏要停止注射、保留管路</b>），等待<b>醫療支援（急救小組）</b>到場；由<b>護理師隊長用 ISBAR 交班</b>。', rhythm: 'ROSC / 持續 CPR', hr: '112 次/分', spo2: '98%', defib: '持續監測' }
+    ]
+  },
+  s2: {
+    badge: '狀況二 3D',
+    title: '假人在 X 光室急救，標準病人在 CT 室',
+    sub: '最難：X 光室沒有急救車與甦醒球，需由護理師從 CT 室推車支援',
+    steps: [
+      { t: '開場', audio: 'audio/s2_0.mp3', cap: '狀況二：模擬假人在 <b>X 光室</b>需要急救，標準病人在 <b>CT 室</b>。依<b>叫叫 CABD</b> 流程進行。', rhythm: 'VF / 無脈搏', hr: '--', spo2: '--%', defib: '在 CT 室' },
+      { t: '叫：叫喚', audio: 'audio/s2_1.mp3', cap: 'X 光放射師 B <b>拍肩、大聲呼喚</b>，10 秒內檢查<b>呼吸與頸動脈</b> → 沒有反應、沒有呼吸。', rhythm: 'VF 心室顫動', hr: '0 (OHCA)', spo2: '--%', defib: '在 CT 室' },
+      { t: '叫：叫人', audio: 'audio/s2_2.mp3', cap: '<b>A 暫代隊長</b>，用控制台手機撥 <b>999</b>，說出地點「X 光室」。999 是<b>全院廣播</b>，所有人同時收到。', rhythm: 'VF 心室顫動', hr: '0 (呼救中)', spo2: '--%', defib: '在 CT 室' },
+      { t: 'C 胸外按壓', audio: 'audio/s2_3.mp3', cap: '<b>B 立刻壓胸</b>：用力壓、快快壓，急救車到之前不能停。', rhythm: '徒手 CPR 壓胸', hr: '110 次/分', spo2: '80%', defib: '運送中' },
+      { t: 'A 打開呼吸道', audio: 'audio/s2_4.mp3', cap: 'A 走到病人頭側，<b>壓額抬下巴</b>打開呼吸道。<b>甦醒球在急救車上</b>，車到之前先維持呼吸道暢通，B 持續壓胸。', rhythm: '徒手 CPR 壓胸', hr: '110 次/分', spo2: '82%', defib: '運送中' },
+      { t: '護理師推急救車', audio: 'audio/s2_5.mp3', cap: '同時，CT 室護理師聽到廣播，<b>推著急救車（甦醒球在車上）</b>經走道、等候區趕到；<b>CT 放射師留守</b>照顧標準病人。', rhythm: '徒手 CPR 壓胸', hr: '112 次/分', spo2: '84%', defib: '抵達 X 光室' },
+      { t: '交接指揮', audio: 'audio/s2_6.mp3', cap: '護理師到場：「<b>由我指揮</b>」；A 用 <b>ISBAR</b> 簡短交班（倒下時間、壓胸幾分鐘、已撥 999）。', rhythm: 'CPR 壓胸波', hr: '112 次/分', spo2: '86%', defib: '床邊就緒' },
+      { t: 'B 人工呼吸', audio: 'audio/s2_7.mp3', cap: '急救車到了，A 從急救車<b>拿出甦醒球</b>，接上<b>牆上氧氣</b>開始通氣；壓胸 30 下、通氣 2 次。', rhythm: 'CPR 30:2', hr: '112 次/分', spo2: '95%', defib: '準備貼片' },
+      { t: 'D 電擊', audio: 'audio/s2_8.mp3', cap: '<b>護理師貼電擊片</b>、判讀心律，喊「<b>大家離開</b>」後放電；放電後<b>立刻接著壓胸</b>。', rhythm: '⚡ 200J 電擊 → CPR', hr: '115 次/分', spo2: '97%', defib: '200J 已放電' },
+      { t: '等待支援・ISBAR 交班', audio: 'audio/s2_9.mp3', cap: '兩位放射師每 2 分鐘<b>換手壓胸</b>，等待<b>醫療支援（急救小組）</b>到場；由<b>護理師隊長用 ISBAR 交班</b>。', rhythm: 'ROSC / 持續 CPR', hr: '112 次/分', spo2: '98%', defib: '持續監測' }
+    ]
+  },
+  s3a: {
+    badge: '狀況三-A 3D',
+    title: '假人在等候區倒下，標準病人在 X 光室',
+    sub: '推床推進沒有 SP 的 CT 室急救，並請家屬在外等候、關門保護隱私',
+    steps: [
+      { t: '開場', audio: 'audio/s3a_0.mp3', cap: '狀況三-A：假人在<b>等候區推床</b>上倒下，標準病人在 X 光室 → 推進<b>沒有 SP 的 CT 室</b>急救。', rhythm: 'VF / 無脈搏', hr: '--', spo2: '--%', defib: 'CT 室待命' },
+      { t: '叫：叫喚', audio: 'audio/s3a_1.mp3', cap: 'CT 放射師發現病人倒下，<b>拍肩、大聲呼喚</b>，10 秒內檢查<b>呼吸與頸動脈</b> → 沒有反應、沒有呼吸。', rhythm: 'VF 心室顫動', hr: '0 (OHCA)', spo2: '--%', defib: 'CT 室待命' },
+      { t: '叫：叫人', audio: 'audio/s3a_2.mp3', cap: 'CT 放射師大聲呼救；<b>護理師擔任隊長</b>，用 CT 室控制台手機撥 <b>999</b>，地點說「CT 室」。', rhythm: 'VF 心室顫動', hr: '0 (呼救中)', spo2: '--%', defib: 'CT 室待命' },
+      { t: 'C 胸外按壓', audio: 'audio/s3a_3.mp3', cap: 'CT 放射師<b>在推床上立刻壓胸</b>（墊急救硬板）。', rhythm: '推床上 CPR', hr: '110 次/分', spo2: '80%', defib: 'CT 室待命' },
+      { t: '推進 CT 室', audio: 'audio/s3a_4.mp3', cap: '護理師出來協助，<b>兩人把推床推進 CT 室</b>，中斷壓胸 <b>10 秒內</b>，進房立刻繼續壓胸。', rhythm: '移床 → 繼續 CPR', hr: '110 次/分', spo2: '83%', defib: 'CT 室待命' },
+      { t: 'A 打開呼吸道', audio: 'audio/s3a_5.mp3', cap: '護理師把<b>急救車推到床邊</b>，在病人頭側<b>壓額抬下巴</b>。', rhythm: 'CPR 壓胸波', hr: '112 次/分', spo2: '86%', defib: '推至床邊' },
+      { t: 'B 人工呼吸', audio: 'audio/s3a_6.mp3', cap: '護理師拿出急救車上的<b>甦醒球</b>，接上 CT 室<b>牆上氧氣</b>；壓胸 30 下、通氣 2 次。', rhythm: 'CPR 30:2', hr: '112 次/分', spo2: '95%', defib: '準備貼片' },
+      { t: '隔離家屬・支援', audio: 'audio/s3a_7.mp3', cap: 'X 光放射師 <b>A 先請家屬在外稍候、關門</b>，再進 CT 室接手通氣；<b>B 留守 X 光室</b>照顧標準病人。', rhythm: 'CPR 30:2', hr: '112 次/分', spo2: '96%', defib: '分析準備' },
+      { t: 'D 電擊', audio: 'audio/s3a_8.mp3', cap: '<b>護理師貼電擊片</b>、判讀心律，喊「<b>大家離開</b>」後放電；放電後<b>立刻接著壓胸</b>。', rhythm: '⚡ 200J 電擊 → CPR', hr: '115 次/分', spo2: '97%', defib: '200J 已放電' },
+      { t: '等待支援・ISBAR 交班', audio: 'audio/s3a_9.mp3', cap: '兩位放射師每 2 分鐘<b>換手壓胸</b>，等待<b>醫療支援（急救小組）</b>到場；由<b>護理師隊長用 ISBAR 交班</b>。', rhythm: 'ROSC / 持續 CPR', hr: '112 次/分', spo2: '98%', defib: '持續監測' }
+    ]
+  },
+  s3b: {
+    badge: '狀況三-B 3D',
+    title: '假人在等候區倒下，標準病人在 CT 室',
+    sub: '推床推進沒有 SP 的 X 光室；隔離家屬關門，並從 CT 室推急救車支援',
+    steps: [
+      { t: '開場', audio: 'audio/s3b_0.mp3', cap: '狀況三-B：假人在<b>等候區推床</b>上倒下，標準病人在 CT 室 → 推進<b>沒有 SP 的 X 光室</b>；急救車要從 CT 室推過來。', rhythm: 'VF / 無脈搏', hr: '--', spo2: '--%', defib: '在 CT 室' },
+      { t: '叫：叫喚', audio: 'audio/s3b_1.mp3', cap: 'X 光放射師 A 發現病人倒下，<b>拍肩、大聲呼喚</b>，10 秒內檢查<b>呼吸與頸動脈</b> → 沒有反應、沒有呼吸。', rhythm: 'VF 心室顫動', hr: '0 (OHCA)', spo2: '--%', defib: '在 CT 室' },
+      { t: '叫：叫人', audio: 'audio/s3b_2.mp3', cap: '<b>A 大聲呼救、暫代隊長</b>；<b>B 用 X 光室控制台手機撥 999</b>，地點說「X 光室」（全院廣播）。', rhythm: 'VF 心室顫動', hr: '0 (呼救中)', spo2: '--%', defib: '在 CT 室' },
+      { t: 'C 胸外按壓', audio: 'audio/s3b_3.mp3', cap: 'A <b>在推床上立刻壓胸</b>。', rhythm: '推床上 CPR', hr: '110 次/分', spo2: '80%', defib: '在 CT 室' },
+      { t: '推進 X 光室', audio: 'audio/s3b_4.mp3', cap: 'B 出來協助，<b>兩人把推床推進 X 光室</b>，中斷壓胸 <b>10 秒內</b>，進房立刻繼續壓胸。', rhythm: '移床 → 繼續 CPR', hr: '110 次/分', spo2: '82%', defib: '運送準備' },
+      { t: '隔離家屬', audio: 'audio/s3b_5.mp3', cap: '<b>B 請家屬在外面稍候、關門</b>保護隱私，再回到 X 光室。', rhythm: '徒手 CPR 壓胸', hr: '110 次/分', spo2: '83%', defib: '運送中' },
+      { t: 'A 打開呼吸道', audio: 'audio/s3b_6.mp3', cap: 'B 在病人頭側<b>壓額抬下巴</b>。<b>甦醒球在急救車上</b>，車到之前先維持呼吸道暢通。', rhythm: '徒手 CPR 壓胸', hr: '112 次/分', spo2: '84%', defib: '運送中' },
+      { t: '護理師推急救車', audio: 'audio/s3b_7.mp3', cap: 'CT 室護理師聽到廣播，<b>推著急救車（甦醒球在車上）</b>趕到 X 光室；<b>CT 放射師留守</b>照顧標準病人。', rhythm: '徒手 CPR 壓胸', hr: '112 次/分', spo2: '86%', defib: '抵達 X 光室' },
+      { t: '交接指揮', audio: 'audio/s3b_8.mp3', cap: '護理師到場：「<b>由我指揮</b>」；A 用 <b>ISBAR</b> 簡短交班（倒下時間、壓胸幾分鐘、已撥 999）。', rhythm: 'CPR 壓胸波', hr: '112 次/分', spo2: '88%', defib: '床邊就緒' },
+      { t: 'B 人工呼吸', audio: 'audio/s3b_9.mp3', cap: 'B 從急救車<b>拿出甦醒球</b>，接上 X 光室<b>牆上氧氣</b>；壓胸 30 下、通氣 2 次。', rhythm: 'CPR 30:2', hr: '112 次/分', spo2: '95%', defib: '準備貼片' },
+      { t: 'D 電擊', audio: 'audio/s3b_10.mp3', cap: '<b>護理師貼電擊片</b>、判讀心律，喊「<b>大家離開</b>」後放電；放電後<b>立刻接著壓胸</b>。', rhythm: '⚡ 200J 電擊 → CPR', hr: '115 次/分', spo2: '97%', defib: '200J 已放電' },
+      { t: '等待支援・ISBAR 交班', audio: 'audio/s3b_11.mp3', cap: '兩位放射師每 2 分鐘<b>換手壓胸</b>，等待<b>醫療支援（急救小組）</b>到場；由<b>護理師隊長用 ISBAR 交班</b>。', rhythm: 'ROSC / 持續 CPR', hr: '112 次/分', spo2: '98%', defib: '持續監測' }
+    ]
+  }
+};
+
+// 動態建立下方步驟按鈕列
+function renderCabdTrack() {
+  const steps = SCENARIO_META[curSceneId].steps;
+  const bar = document.getElementById('cabdBar');
+  bar.innerHTML = steps.slice(1).map((st, idx) => {
+    const sIdx = idx + 1;
+    return `<span class="cabd-node" data-step="${sIdx}">${st.t}</span>`;
+  }).join('<i class="cabd-arrow">→</i>');
+  bar.querySelectorAll('.cabd-node').forEach(node => {
+    node.onclick = () => playStep(Number(node.dataset.step));
+  });
+}
+
+// ── 計算並瞬間套用每個狀況在 stepIdx 時的靜態基準狀態 ────────
+const WAIT_STRETCHER = [258, 224];
+const WAIT_FAM = [415, 215];
+
+function applySnapshotState(stepIdx) {
+  clearBubbles3D();
+  showOxygenTube(null, null);
+  const CT = getRoomCoords(dynamicObjs.ctRoom);
+  const XR = getRoomCoords(dynamicObjs.xrRoom);
+
+  for (const k of ['rn', 'rtc', 'rta', 'rtb', 'sp', 'fam', 'team']) {
+    actors[k].userData.pose = 'idle';
+    actors[k].userData.handAmbu.visible = false;
+  }
+  dynamicObjs.doors.A.visible = false;
+  dynamicObjs.doors.B.visible = false;
+  actors.mk.userData.cprActive = false;
+  actors.mk.userData.headPivot.rotation.x = 0;
+  actors.mk.userData.maskOnFace.visible = false;
+  actors.mk.userData.padsGroup.visible = false;
+  cprPulseRing.visible = false;
+
+  const banner = document.getElementById('broadcastBanner');
+  banner.classList.toggle('show', stepIdx >= 2);
+
+  if (curSceneId === 's1') {
+    banner.textContent = '📢 999 全院急救廣播：電腦斷層室（CT 室）發生急救事件！';
+    setLeaderHighlight('rn');
+    dynamicObjs.couchGroup.position.z = stepIdx >= 3 ? dynamicObjs.couchOutZ : dynamicObjs.couchInZ;
+    dynamicObjs.cartGroup.position.copy(stepIdx >= 4 ? CT.cartBedside : dynamicObjs.cartHomePos);
+    dynamicObjs.cartAmbu.visible = stepIdx < 5;
+
+    setActorPos(actors.sp, XR.spSpot, XR.bedLook);
+    setActorPos(actors.rtb, stepIdx >= 6 ? XR.spCareSpot : XR.staffR, XR.spSpot);
+    setActorPos(actors.rta, stepIdx >= 6 ? CT.bedsideHead : XR.staffL, CT.bedLook);
+    setActorPos(actors.rtc, stepIdx >= 1 ? CT.bedsideR : CT.staffL, CT.bedLook);
+
+    if (stepIdx <= 1) setActorPos(actors.rn, CT.staffR, CT.bedLook);
+    else if (stepIdx <= 3) setActorPos(actors.rn, CT.phoneSpot, CT.bedLook);
+    else if (stepIdx <= 5) setActorPos(actors.rn, CT.bedsideHead, CT.bedLook);
+    else setActorPos(actors.rn, CT.rnCommand, CT.bedLook);
+
+    if (stepIdx >= 3) {
+      actors.mk.userData.cprActive = true;
+      cprPulseRing.visible = true;
+      cprPulseRing.position.set(CT.bedX, 1.5, dynamicObjs.couchGroup.position.z - 8);
+      actors.rtc.userData.pose = 'cpr';
+    }
+    if (stepIdx >= 4) actors.mk.userData.headPivot.rotation.x = -0.35;
+    if (stepIdx >= 5) {
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(CT.roomCode, CT.bedsideHead);
+    }
+    if (stepIdx === 5) {
+      actors.rn.userData.pose = 'bagging';
+      actors.rn.userData.handAmbu.visible = true;
+    }
+    if (stepIdx >= 6 && stepIdx < 8) {
+      actors.rta.userData.pose = 'bagging';
+      actors.rta.userData.handAmbu.visible = true;
+    }
+    if (stepIdx >= 7) actors.mk.userData.padsGroup.visible = true;
+    actors.team.visible = stepIdx >= 8;
+    if (stepIdx === 8) {
+      setActorPos(actors.rta, CT.bedsideR, CT.bedLook);
+      setActorPos(actors.rtc, CT.bedsideHead, CT.bedLook);
+      actors.rta.userData.pose = 'cpr';
+      actors.rtc.userData.pose = 'bagging';
+      actors.rtc.userData.handAmbu.visible = true;
+      const tr = getCorridorRoute('entry', CT.roomCode);
+      setActorPos(actors.team, tr[tr.length - 1], CT.rnCommand);
+    }
+  } else if (curSceneId === 's2') {
+    banner.textContent = '📢 999 全院急救廣播：一般 X 光室發生急救事件！';
+    setLeaderHighlight(stepIdx >= 6 ? 'rn' : stepIdx >= 2 ? 'rta' : null);
+    dynamicObjs.cartGroup.position.copy(stepIdx >= 5 ? XR.cartBedside : dynamicObjs.cartHomePos);
+    dynamicObjs.cartAmbu.visible = stepIdx < 7;
+
+    setActorPos(actors.sp, CT.spSpot, CT.bedLook);
+    setActorPos(actors.rtc, stepIdx >= 5 ? CT.spCareSpot : CT.staffL, CT.spSpot);
+    setActorPos(actors.rtb, stepIdx >= 1 ? XR.bedsideR : XR.staffR, XR.bedLook);
+
+    if (stepIdx <= 1) setActorPos(actors.rta, XR.staffL, XR.bedLook);
+    else if (stepIdx <= 3) setActorPos(actors.rta, XR.phoneSpot, XR.bedLook);
+    else setActorPos(actors.rta, XR.bedsideHead, XR.bedLook);
+
+    if (stepIdx < 5) setActorPos(actors.rn, CT.staffR, CT.bedLook);
+    else setActorPos(actors.rn, XR.rnCommand, XR.bedLook);
+
+    if (stepIdx >= 3) {
+      actors.mk.userData.cprActive = true;
+      cprPulseRing.visible = true;
+      cprPulseRing.position.set(XR.bedX, 1.5, XR.bedZ);
+      actors.rtb.userData.pose = 'cpr';
+    }
+    if (stepIdx >= 4) actors.mk.userData.headPivot.rotation.x = -0.35;
+    if (stepIdx >= 7 && stepIdx < 9) {
+      actors.rta.userData.pose = 'bagging';
+      actors.rta.userData.handAmbu.visible = true;
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(XR.roomCode, XR.bedsideHead);
+    }
+    if (stepIdx >= 8) actors.mk.userData.padsGroup.visible = true;
+    actors.team.visible = stepIdx >= 9;
+    if (stepIdx === 9) {
+      setActorPos(actors.rta, XR.bedsideR, XR.bedLook);
+      setActorPos(actors.rtb, XR.bedsideHead, XR.bedLook);
+      actors.rta.userData.pose = 'cpr';
+      actors.rtb.userData.pose = 'bagging';
+      actors.rtb.userData.handAmbu.visible = true;
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(XR.roomCode, XR.bedsideHead);
+      const tr = getCorridorRoute('entry', XR.roomCode);
+      setActorPos(actors.team, tr[tr.length - 1], XR.rnCommand);
+    }
+  } else if (curSceneId === 's3a') {
+    banner.textContent = '📢 999 全院急救廣播：電腦斷層室（CT 室）發生急救事件！';
+    setLeaderHighlight('rn');
+    setActorPos(actors.fam, WAIT_FAM, WAIT_STRETCHER);
+    setActorPos(actors.sp, XR.spSpot, XR.bedLook);
+    setActorPos(actors.rtb, stepIdx >= 7 ? XR.spCareSpot : XR.staffR, XR.spSpot);
+
+    const inCT = stepIdx >= 4;
+    const stPos = inCT ? [CT.bedX, CT.bedZ] : WAIT_STRETCHER;
+    dynamicObjs.stretcher.position.set(stPos[0], 0, stPos[1]);
+    dynamicObjs.cartGroup.position.copy(stepIdx >= 5 ? CT.cartBedside : dynamicObjs.cartHomePos);
+    dynamicObjs.cartAmbu.visible = stepIdx < 6;
+    dynamicObjs.doors[CT.roomCode].visible = stepIdx >= 7;
+
+    if (stepIdx === 0) setActorPos(actors.rtc, CT.staffL, WAIT_STRETCHER);
+    else if (stepIdx < 4) setActorPos(actors.rtc, [WAIT_STRETCHER[0] + 18, WAIT_STRETCHER[1] + 6], WAIT_STRETCHER);
+    else setActorPos(actors.rtc, CT.bedsideR, CT.bedLook);
+
+    if (stepIdx <= 1) setActorPos(actors.rn, CT.staffR, CT.bedLook);
+    else if (stepIdx <= 3) setActorPos(actors.rn, CT.phoneSpot, WAIT_STRETCHER);
+    else if (stepIdx === 4) setActorPos(actors.rn, CT.rnCommand, CT.bedLook);
+    else if (stepIdx <= 6) setActorPos(actors.rn, CT.bedsideHead, CT.bedLook);
+    else setActorPos(actors.rn, CT.rnCommand, CT.bedLook);
+
+    setActorPos(actors.rta, stepIdx >= 7 ? CT.bedsideHead : XR.staffL, CT.bedLook);
+
+    if (stepIdx >= 3) {
+      actors.mk.userData.cprActive = true;
+      cprPulseRing.visible = true;
+      cprPulseRing.position.set(stPos[0], 1.5, stPos[1] - 6);
+      actors.rtc.userData.pose = 'cpr';
+    }
+    if (stepIdx >= 5) actors.mk.userData.headPivot.rotation.x = -0.35;
+    if (stepIdx === 6) {
+      actors.rn.userData.pose = 'bagging';
+      actors.rn.userData.handAmbu.visible = true;
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(CT.roomCode, CT.bedsideHead);
+    }
+    if (stepIdx >= 7 && stepIdx < 9) {
+      actors.rta.userData.pose = 'bagging';
+      actors.rta.userData.handAmbu.visible = true;
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(CT.roomCode, CT.bedsideHead);
+    }
+    if (stepIdx >= 8) actors.mk.userData.padsGroup.visible = true;
+    actors.team.visible = stepIdx >= 9;
+    if (stepIdx === 9) {
+      setActorPos(actors.rta, CT.bedsideR, CT.bedLook);
+      setActorPos(actors.rtc, CT.bedsideHead, CT.bedLook);
+      actors.rta.userData.pose = 'cpr';
+      actors.rtc.userData.pose = 'bagging';
+      actors.rtc.userData.handAmbu.visible = true;
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(CT.roomCode, CT.bedsideHead);
+      const tr = getCorridorRoute('entry', CT.roomCode);
+      setActorPos(actors.team, tr[tr.length - 1], CT.rnCommand);
+    }
+  } else if (curSceneId === 's3b') {
+    banner.textContent = '📢 999 全院急救廣播：一般 X 光室發生急救事件！';
+    setLeaderHighlight(stepIdx >= 8 ? 'rn' : stepIdx >= 2 ? 'rta' : null);
+    setActorPos(actors.fam, WAIT_FAM, WAIT_STRETCHER);
+    setActorPos(actors.sp, CT.spSpot, CT.bedLook);
+    setActorPos(actors.rtc, stepIdx >= 7 ? CT.spCareSpot : CT.staffL, CT.spSpot);
+
+    const inXR = stepIdx >= 4;
+    const stPos = inXR ? [XR.bedX, XR.bedZ] : WAIT_STRETCHER;
+    dynamicObjs.stretcher.position.set(stPos[0], 0, stPos[1]);
+    dynamicObjs.cartGroup.position.copy(stepIdx >= 7 ? XR.cartBedside : dynamicObjs.cartHomePos);
+    dynamicObjs.cartAmbu.visible = stepIdx < 9;
+    dynamicObjs.doors[XR.roomCode].visible = stepIdx >= 5;
+
+    if (stepIdx === 0) setActorPos(actors.rta, XR.staffL, WAIT_STRETCHER);
+    else if (stepIdx < 4) setActorPos(actors.rta, [WAIT_STRETCHER[0] + 18, WAIT_STRETCHER[1] + 6], WAIT_STRETCHER);
+    else setActorPos(actors.rta, XR.bedsideR, XR.bedLook);
+
+    if (stepIdx <= 1) setActorPos(actors.rtb, XR.staffR, XR.bedLook);
+    else if (stepIdx <= 3) setActorPos(actors.rtb, XR.phoneSpot, WAIT_STRETCHER);
+    else setActorPos(actors.rtb, XR.bedsideHead, XR.bedLook);
+
+    if (stepIdx < 7) setActorPos(actors.rn, CT.staffR, CT.bedLook);
+    else setActorPos(actors.rn, XR.rnCommand, XR.bedLook);
+
+    if (stepIdx >= 3) {
+      actors.mk.userData.cprActive = true;
+      cprPulseRing.visible = true;
+      cprPulseRing.position.set(stPos[0], 1.5, stPos[1] - 6);
+      actors.rta.userData.pose = 'cpr';
+    }
+    if (stepIdx >= 6) actors.mk.userData.headPivot.rotation.x = -0.35;
+    if (stepIdx >= 9 && stepIdx < 11) {
+      actors.rtb.userData.pose = 'bagging';
+      actors.rtb.userData.handAmbu.visible = true;
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(XR.roomCode, XR.bedsideHead);
+    }
+    if (stepIdx >= 10) actors.mk.userData.padsGroup.visible = true;
+    actors.team.visible = stepIdx >= 11;
+    if (stepIdx === 11) {
+      setActorPos(actors.rtb, XR.bedsideR, XR.bedLook);
+      setActorPos(actors.rta, XR.bedsideHead, XR.bedLook);
+      actors.rtb.userData.pose = 'cpr';
+      actors.rta.userData.pose = 'bagging';
+      actors.rta.userData.handAmbu.visible = true;
+      actors.mk.userData.maskOnFace.visible = true;
+      showOxygenTube(XR.roomCode, XR.bedsideHead);
+      const tr = getCorridorRoute('entry', XR.roomCode);
+      setActorPos(actors.team, tr[tr.length - 1], XR.rnCommand);
+    }
+  }
+}
+
+// ── 智慧攝影機運鏡 ───────────────────────────────────────────
+let camMode = 'auto';
+function flyCameraTo(pos, target, ms = 850) {
+  const p0 = cam.position.clone(), t0 = controls.target.clone();
+  const p1 = new THREE.Vector3(...pos), t1 = new THREE.Vector3(...target);
+  tween(ms, k => {
+    cam.position.lerpVectors(p0, p1, k);
+    controls.target.lerpVectors(t0, t1, k);
+    controls.update();
+  }, stepToken);
+}
+
+function applyCameraForStep(stepIdx) {
+  const CT = getRoomCoords(dynamicObjs.ctRoom);
+  const XR = getRoomCoords(dynamicObjs.xrRoom);
+  if (camMode === 'over') {
+    flyCameraTo([520, 740, 820], [520, 10, 310], 700);
+    return;
+  }
+  if (camMode === 'ct') {
+    flyCameraTo([CT.cx + 15, 225, CT.f.z1 - 155], [CT.bedX, 28, CT.bedZ], 700);
+    return;
+  }
+  if (camMode === 'xray') {
+    flyCameraTo([XR.cx + 15, 225, XR.f.z1 - 155], [XR.bedX, 28, XR.bedZ], 700);
+    return;
+  }
+
+  // auto 智慧跟拍
+  if (stepIdx === 0) {
+    flyCameraTo([520, 620, 790], [520, 20, 320], 800);
+    return;
+  }
+  if (curSceneId === 's1') {
+    if (stepIdx === 6) flyCameraTo([530, 560, 740], [530, 20, 310], 800);
+    else flyCameraTo([CT.cx + 22, 215, CT.f.z1 - 150], [CT.bedX, 28, CT.bedZ], 800);
+  } else if (curSceneId === 's2') {
+    if (stepIdx === 5) flyCameraTo([530, 560, 740], [530, 20, 310], 800);
+    else flyCameraTo([XR.cx + 22, 215, XR.f.z1 - 150], [XR.bedX, 28, XR.bedZ], 800);
+  } else if (curSceneId === 's3a') {
+    if (stepIdx <= 3) flyCameraTo([330, 230, 60], [315, 25, 225], 800);
+    else if (stepIdx === 4 || stepIdx === 7) flyCameraTo([520, 560, 740], [520, 20, 310], 800);
+    else flyCameraTo([CT.cx + 10, 225, CT.f.z1 - 155], [CT.bedX, 28, CT.bedZ], 800);
+  } else if (curSceneId === 's3b') {
+    if (stepIdx <= 3) flyCameraTo([330, 230, 60], [315, 25, 225], 800);
+    else if (stepIdx === 4 || stepIdx === 5 || stepIdx === 7) flyCameraTo([520, 560, 740], [520, 20, 310], 800);
+    else flyCameraTo([XR.cx + 10, 225, XR.f.z1 - 155], [XR.bedX, 28, XR.bedZ], 800);
+  }
+}
+
+// ── 執行單一步驟的 3D 動畫演出 ────────────────────────────────
+let curStep = 0;
+let autoPlay = false;
+let muted = false;
+const voiceAudio = new Audio();
+
+async function playStep(idx) {
+  const meta = SCENARIO_META[curSceneId];
+  const steps = meta.steps;
+  curStep = Math.max(0, Math.min(steps.length - 1, idx));
+  const myTok = ++stepToken;
+  voiceAudio.pause();
+
+  const st = steps[curStep];
+  document.getElementById('sceneBadge').textContent = meta.badge;
+  document.getElementById('sceneTitle').textContent = meta.title;
+  document.getElementById('planSub').textContent =
+    `方案${plan === 1 ? '一（A＝X 光／B＝CT）' : '二（A＝CT／B＝X 光）'}｜${meta.sub}`;
+  document.getElementById('backLink').href = `emergency.html?plan=${plan}#${curSceneId}`;
+
+  document.getElementById('stepTag').textContent = st.t;
+  document.getElementById('stepCap').innerHTML = st.cap;
+  document.getElementById('stepNo').textContent = curStep === 0 ? `開場／共 ${steps.length - 1} 步` : `第 ${curStep} 步／共 ${steps.length - 1} 步`;
+  document.getElementById('btnPrev').disabled = curStep === 0;
+  document.getElementById('btnNext').textContent = curStep === steps.length - 1 ? '↺ 重新開始' : '下一步 ▶';
+
+  document.getElementById('rhythmTxt').textContent = st.rhythm;
+  document.getElementById('hrVal').textContent = st.hr;
+  document.getElementById('spo2Val').textContent = st.spo2;
+  document.getElementById('defibVal').textContent = st.defib;
+
+  document.querySelectorAll('#cabdBar .cabd-node').forEach(node => {
+    const s = Number(node.dataset.step);
+    node.className = 'cabd-node' + (s === curStep ? ' now' : s < curStep ? ' done' : '');
+  });
+
+  // 先對齊前一步結束的基底狀態
+  applySnapshotState(curStep > 0 ? curStep - 1 : 0);
+  applyCameraForStep(curStep);
+
+  // 播放語音解說
+  voiceAudio.src = st.audio;
+  voiceAudio.currentTime = 0;
+  voiceAudio.muted = muted;
+  const audioDone = new Promise(resolve => {
+    voiceAudio.onended = resolve;
+    voiceAudio.onerror = resolve;
+  });
+  voiceAudio.play().catch(() => {});
+
+  const CT = getRoomCoords(dynamicObjs.ctRoom);
+  const XR = getRoomCoords(dynamicObjs.xrRoom);
+
+  // ── 依情境與步驟執行 3D 動作 ──
+  if (curSceneId === 's1') {
+    await runScenario1Step(curStep, CT, XR, myTok);
+  } else if (curSceneId === 's2') {
+    await runScenario2Step(curStep, CT, XR, myTok);
+  } else if (curSceneId === 's3a') {
+    await runScenario3aStep(curStep, CT, XR, myTok);
+  } else if (curSceneId === 's3b') {
+    await runScenario3bStep(curStep, CT, XR, myTok);
+  }
+
+  await audioDone;
+  if (myTok === stepToken && autoPlay && curStep < steps.length - 1) {
+    setTimeout(() => {
+      if (myTok === stepToken && autoPlay) playStep(curStep + 1);
+    }, 600);
+  }
+}
+
+// ── 狀況一動作劇本 ──
+async function runScenario1Step(step, CT, XR, tok) {
+  if (step === 1) {
+    await moveActor3D(actors.rtc, CT.bedsideR, 1000, CT.bedLook, tok);
+    if (tok !== stepToken) return;
+    actors.rtc.userData.pose = 'check';
+    showBubble3D(actors.rtc, '先生！先生！', '#fef3c7', '#92400e');
+  } else if (step === 2) {
+    await moveActor3D(actors.rn, CT.phoneSpot, 700, CT.bedLook, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rn, '📱 撥 999：CT 室急救！', '#dc2626', '#fff');
+    document.getElementById('broadcastBanner').classList.add('show');
+    triggerBroadcastWaves(dynamicObjs.phones[CT.roomCode]);
+  } else if (step === 3) {
+    showBubble3D(actors.rtc, '退床！', '#dbeafe', '#1e40af');
+    await tween(1100, k => {
+      dynamicObjs.couchGroup.position.z = dynamicObjs.couchInZ + (dynamicObjs.couchOutZ - dynamicObjs.couchInZ) * k;
+    }, tok);
+    if (tok !== stepToken) return;
+    clearBubbles3D();
+    showBubble3D(actors.rtc, '立刻壓胸！', '#fee2e2', '#991b1b');
+    actors.rtc.userData.pose = 'cpr';
+    actors.mk.userData.cprActive = true;
+    cprPulseRing.visible = true;
+    cprPulseRing.position.set(CT.bedX, 1.5, dynamicObjs.couchGroup.position.z - 8);
+  } else if (step === 4) {
+    await pushCartAlongPath3D(actors.rn, dynamicObjs.cartGroup, [], CT.cartBedside, CT.bedsideHead, 1200, tok);
+    if (tok !== stepToken) return;
+    actors.mk.userData.headPivot.rotation.x = -0.35;
+    showBubble3D(actors.rn, '壓額抬下巴', '#ede9fe', '#5b21b6');
+  } else if (step === 5) {
+    dynamicObjs.cartAmbu.visible = false;
+    actors.rn.userData.handAmbu.visible = true;
+    actors.rn.userData.pose = 'bagging';
+    actors.mk.userData.maskOnFace.visible = true;
+    showOxygenTube(CT.roomCode, CT.bedsideHead);
+    showBubble3D(actors.rn, '30：2（甦醒球＋牆上 O₂）', '#e0f2fe', '#0369a1');
+  } else if (step === 6) {
+    showBubble3D(actors.rtb, '顧 SP・暫停檢查', '#d1fae5', '#065f46');
+    moveActor3D(actors.rtb, XR.spCareSpot, 900, XR.spSpot, tok);
+    const route = getCorridorRoute(XR.roomCode, CT.roomCode);
+    await Promise.all([
+      moveActorPath3D(actors.rta, [...route, CT.bedsideHead], 2600, CT.bedLook, tok),
+      moveActor3D(actors.rn, CT.rnCommand, 1200, CT.bedLook, tok)
+    ]);
+    if (tok !== stepToken) return;
+    actors.rn.userData.handAmbu.visible = false;
+    actors.rta.userData.handAmbu.visible = true;
+    actors.rta.userData.pose = 'bagging';
+    showBubble3D(actors.rta, '接手通氣！', '#dbeafe', '#1e40af');
+  } else if (step === 7) {
+    await runDefibStep(CT, 'rtc', 'rta', tok);
+  } else if (step === 8) {
+    await runHandoverStep(CT, 'rta', 'rtc', tok);
+  }
+}
+
+// ── 狀況二動作劇本 ──
+async function runScenario2Step(step, CT, XR, tok) {
+  if (step === 1) {
+    await moveActor3D(actors.rtb, XR.bedsideR, 1000, XR.bedLook, tok);
+    if (tok !== stepToken) return;
+    actors.rtb.userData.pose = 'check';
+    showBubble3D(actors.rtb, '先生！先生！', '#fef3c7', '#92400e');
+  } else if (step === 2) {
+    setLeaderHighlight('rta');
+    await moveActor3D(actors.rta, XR.phoneSpot, 700, XR.bedLook, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rta, '📱 暫代隊長・撥 999：X 光室急救！', '#dc2626', '#fff');
+    document.getElementById('broadcastBanner').classList.add('show');
+    triggerBroadcastWaves(dynamicObjs.phones[XR.roomCode]);
+  } else if (step === 3) {
+    actors.rtb.userData.pose = 'cpr';
+    actors.mk.userData.cprActive = true;
+    cprPulseRing.visible = true;
+    cprPulseRing.position.set(XR.bedX, 1.5, XR.bedZ);
+    showBubble3D(actors.rtb, '立刻徒手壓胸！', '#fee2e2', '#991b1b');
+  } else if (step === 4) {
+    await moveActor3D(actors.rta, XR.bedsideHead, 900, XR.bedLook, tok);
+    if (tok !== stepToken) return;
+    actors.mk.userData.headPivot.rotation.x = -0.35;
+    showBubble3D(actors.rta, '壓額抬下巴（等急救車甦醒球）', '#dbeafe', '#1e40af');
+  } else if (step === 5) {
+    moveActor3D(actors.rtc, CT.spCareSpot, 900, CT.spSpot, tok);
+    showBubble3D(actors.rtc, '留守顧 SP・觀察過敏', '#d1fae5', '#065f46');
+    const route = getCorridorRoute(CT.roomCode, XR.roomCode);
+    await pushCartAlongPath3D(actors.rn, dynamicObjs.cartGroup, route, XR.cartBedside, XR.rnCommand, 3200, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rn, '急救車與甦醒球到了！', '#ede9fe', '#5b21b6');
+  } else if (step === 6) {
+    showBubble3D(actors.rn, '由我指揮！', '#ede9fe', '#5b21b6');
+    await new Promise(r => setTimeout(r, 700));
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rta, 'ISBAR 簡短交班', '#dbeafe', '#1e40af');
+    setLeaderHighlight('rn');
+  } else if (step === 7) {
+    await moveActor3D(actors.rta, [XR.cartBedside.x + 14, XR.cartBedside.z + 8], 650, [XR.cartBedside.x, XR.cartBedside.z], tok);
+    if (tok !== stepToken) return;
+    dynamicObjs.cartAmbu.visible = false;
+    actors.rta.userData.handAmbu.visible = true;
+    showBubble3D(actors.rta, '拿甦醒球', '#dbeafe', '#1e40af');
+    await moveActor3D(actors.rta, XR.bedsideHead, 650, XR.bedLook, tok);
+    if (tok !== stepToken) return;
+    clearBubbles3D();
+    actors.rta.userData.pose = 'bagging';
+    actors.mk.userData.maskOnFace.visible = true;
+    showOxygenTube(XR.roomCode, XR.bedsideHead);
+    showBubble3D(actors.rta, '30：2（接牆上 O₂）', '#e0f2fe', '#0369a1');
+  } else if (step === 8) {
+    await runDefibStep(XR, 'rtb', 'rta', tok);
+  } else if (step === 9) {
+    await runHandoverStep(XR, 'rta', 'rtb', tok);
+  }
+}
+
+// ── 狀況三-A 動作劇本 ──
+async function runScenario3aStep(step, CT, XR, tok) {
+  if (step === 1) {
+    const r = getCorridorRoute(CT.roomCode, 'wait');
+    await moveActorPath3D(actors.rtc, [...r, [WAIT_STRETCHER[0] + 18, WAIT_STRETCHER[1] + 6]], 1400, WAIT_STRETCHER, tok);
+    if (tok !== stepToken) return;
+    actors.rtc.userData.pose = 'check';
+    showBubble3D(actors.rtc, '先生！先生！', '#fef3c7', '#92400e');
+  } else if (step === 2) {
+    showBubble3D(actors.rtc, '快來人！病人沒呼吸！', '#fee2e2', '#991b1b');
+    await moveActor3D(actors.rn, CT.phoneSpot, 700, WAIT_STRETCHER, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rn, '📱 撥 999：CT 室急救！', '#dc2626', '#fff');
+    document.getElementById('broadcastBanner').classList.add('show');
+    triggerBroadcastWaves(dynamicObjs.phones[CT.roomCode]);
+  } else if (step === 3) {
+    actors.rtc.userData.pose = 'cpr';
+    actors.mk.userData.cprActive = true;
+    cprPulseRing.visible = true;
+    cprPulseRing.position.set(WAIT_STRETCHER[0], 1.5, WAIT_STRETCHER[1] - 6);
+    showBubble3D(actors.rtc, '在推床上立刻壓胸！', '#fee2e2', '#991b1b');
+  } else if (step === 4) {
+    const toWait = getCorridorRoute(CT.roomCode, 'wait');
+    await moveActorPath3D(actors.rn, toWait, 1200, WAIT_STRETCHER, tok);
+    if (tok !== stepToken) return;
+    actors.mk.userData.cprActive = false;
+    cprPulseRing.visible = false;
+    showBubble3D(actors.rn, '推進 CT 室（中斷 < 10 秒）', '#ede9fe', '#5b21b6');
+    const toCT = getCorridorRoute('wait', CT.roomCode);
+    await pushStretcherPath3D(dynamicObjs.stretcher, actors.rtc, actors.rn, [...toCT, [CT.bedX, CT.bedZ]], CT.bedsideR, CT.rnCommand, CT.bedLook, 2000, tok);
+    if (tok !== stepToken) return;
+    clearBubbles3D();
+    actors.rtc.userData.pose = 'cpr';
+    actors.mk.userData.cprActive = true;
+    cprPulseRing.visible = true;
+    cprPulseRing.position.set(CT.bedX, 1.5, CT.bedZ - 6);
+    showBubble3D(actors.rtc, '進房立刻繼續壓胸！', '#fee2e2', '#991b1b');
+  } else if (step === 5) {
+    await pushCartAlongPath3D(actors.rn, dynamicObjs.cartGroup, [], CT.cartBedside, CT.bedsideHead, 1100, tok);
+    if (tok !== stepToken) return;
+    actors.mk.userData.headPivot.rotation.x = -0.35;
+    showBubble3D(actors.rn, '壓額抬下巴', '#ede9fe', '#5b21b6');
+  } else if (step === 6) {
+    dynamicObjs.cartAmbu.visible = false;
+    actors.rn.userData.handAmbu.visible = true;
+    actors.rn.userData.pose = 'bagging';
+    actors.mk.userData.maskOnFace.visible = true;
+    showOxygenTube(CT.roomCode, CT.bedsideHead);
+    showBubble3D(actors.rn, '30：2（甦醒球＋牆上 O₂）', '#e0f2fe', '#0369a1');
+  } else if (step === 7) {
+    moveActor3D(actors.rtb, XR.spCareSpot, 900, XR.spSpot, tok);
+    const toFam = getCorridorRoute(XR.roomCode, 'wait');
+    await moveActorPath3D(actors.rta, [...toFam.slice(0, -1), [WAIT_FAM[0] - 26, WAIT_FAM[1] + 6]], 1600, WAIT_FAM, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rta, '請家屬在外面稍候，我們全力搶救', '#fef3c7', '#92400e');
+    await new Promise(r => setTimeout(r, 850));
+    if (tok !== stepToken) return;
+    clearBubbles3D();
+    dynamicObjs.doors[CT.roomCode].visible = true;
+    const waitToCT = getCorridorRoute('wait', CT.roomCode);
+    await Promise.all([
+      moveActorPath3D(actors.rta, [...waitToCT, CT.bedsideHead], 1500, CT.bedLook, tok),
+      moveActor3D(actors.rn, CT.rnCommand, 1000, CT.bedLook, tok)
+    ]);
+    if (tok !== stepToken) return;
+    actors.rn.userData.handAmbu.visible = false;
+    actors.rta.userData.handAmbu.visible = true;
+    actors.rta.userData.pose = 'bagging';
+    showBubble3D(actors.rta, '已關門隔離家屬・接手通氣！', '#dbeafe', '#1e40af');
+  } else if (step === 8) {
+    await runDefibStep(CT, 'rtc', 'rta', tok);
+  } else if (step === 9) {
+    await runHandoverStep(CT, 'rta', 'rtc', tok);
+  }
+}
+
+// ── 狀況三-B 動作劇本 ──
+async function runScenario3bStep(step, CT, XR, tok) {
+  if (step === 1) {
+    const r = getCorridorRoute(XR.roomCode, 'wait');
+    await moveActorPath3D(actors.rta, [...r, [WAIT_STRETCHER[0] + 18, WAIT_STRETCHER[1] + 6]], 1400, WAIT_STRETCHER, tok);
+    if (tok !== stepToken) return;
+    actors.rta.userData.pose = 'check';
+    showBubble3D(actors.rta, '先生！先生！', '#fef3c7', '#92400e');
+  } else if (step === 2) {
+    setLeaderHighlight('rta');
+    showBubble3D(actors.rta, '快來人！我暫代隊長！', '#fee2e2', '#991b1b');
+    await moveActor3D(actors.rtb, XR.phoneSpot, 700, WAIT_STRETCHER, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rtb, '📱 撥 999：X 光室急救！', '#dc2626', '#fff');
+    document.getElementById('broadcastBanner').classList.add('show');
+    triggerBroadcastWaves(dynamicObjs.phones[XR.roomCode]);
+  } else if (step === 3) {
+    actors.rta.userData.pose = 'cpr';
+    actors.mk.userData.cprActive = true;
+    cprPulseRing.visible = true;
+    cprPulseRing.position.set(WAIT_STRETCHER[0], 1.5, WAIT_STRETCHER[1] - 6);
+    showBubble3D(actors.rta, '在推床上立刻壓胸！', '#fee2e2', '#991b1b');
+  } else if (step === 4) {
+    const toWait = getCorridorRoute(XR.roomCode, 'wait');
+    await moveActorPath3D(actors.rtb, toWait, 1200, WAIT_STRETCHER, tok);
+    if (tok !== stepToken) return;
+    actors.mk.userData.cprActive = false;
+    cprPulseRing.visible = false;
+    showBubble3D(actors.rtb, '推進 X 光室（中斷 < 10 秒）', '#dbeafe', '#1e40af');
+    const toXR = getCorridorRoute('wait', XR.roomCode);
+    await pushStretcherPath3D(dynamicObjs.stretcher, actors.rta, actors.rtb, [...toXR, [XR.bedX, XR.bedZ]], XR.bedsideR, XR.bedsideHead, XR.bedLook, 2000, tok);
+    if (tok !== stepToken) return;
+    clearBubbles3D();
+    actors.rta.userData.pose = 'cpr';
+    actors.mk.userData.cprActive = true;
+    cprPulseRing.visible = true;
+    cprPulseRing.position.set(XR.bedX, 1.5, XR.bedZ - 6);
+    showBubble3D(actors.rta, '進房立刻繼續壓胸！', '#fee2e2', '#991b1b');
+  } else if (step === 5) {
+    const toWait = getCorridorRoute(XR.roomCode, 'wait');
+    await moveActorPath3D(actors.rtb, [...toWait.slice(0, -1), [WAIT_FAM[0] - 26, WAIT_FAM[1] + 6]], 1300, WAIT_FAM, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rtb, '請在外面稍候', '#fef3c7', '#92400e');
+    await new Promise(r => setTimeout(r, 850));
+    if (tok !== stepToken) return;
+    clearBubbles3D();
+    dynamicObjs.doors[XR.roomCode].visible = true;
+    const backToXR = getCorridorRoute('wait', XR.roomCode);
+    await moveActorPath3D(actors.rtb, [...backToXR, XR.bedsideHead], 1300, XR.bedLook, tok);
+  } else if (step === 6) {
+    actors.mk.userData.headPivot.rotation.x = -0.35;
+    showBubble3D(actors.rtb, '壓額抬下巴（等急救車甦醒球）', '#dbeafe', '#1e40af');
+  } else if (step === 7) {
+    moveActor3D(actors.rtc, CT.spCareSpot, 900, CT.spSpot, tok);
+    showBubble3D(actors.rtc, '留守 CT 室顧 SP', '#d1fae5', '#065f46');
+    const route = getCorridorRoute(CT.roomCode, XR.roomCode);
+    await pushCartAlongPath3D(actors.rn, dynamicObjs.cartGroup, route, XR.cartBedside, XR.rnCommand, 3200, tok);
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rn, '急救車推到 X 光室了！', '#ede9fe', '#5b21b6');
+  } else if (step === 8) {
+    showBubble3D(actors.rn, '由我指揮！', '#ede9fe', '#5b21b6');
+    await new Promise(r => setTimeout(r, 700));
+    if (tok !== stepToken) return;
+    showBubble3D(actors.rta, 'ISBAR 交班', '#dbeafe', '#1e40af');
+    setLeaderHighlight('rn');
+  } else if (step === 9) {
+    await moveActor3D(actors.rtb, [XR.cartBedside.x + 14, XR.cartBedside.z + 8], 650, [XR.cartBedside.x, XR.cartBedside.z], tok);
+    if (tok !== stepToken) return;
+    dynamicObjs.cartAmbu.visible = false;
+    actors.rtb.userData.handAmbu.visible = true;
+    showBubble3D(actors.rtb, '拿甦醒球', '#dbeafe', '#1e40af');
+    await moveActor3D(actors.rtb, XR.bedsideHead, 650, XR.bedLook, tok);
+    if (tok !== stepToken) return;
+    clearBubbles3D();
+    actors.rtb.userData.pose = 'bagging';
+    actors.mk.userData.maskOnFace.visible = true;
+    showOxygenTube(XR.roomCode, XR.bedsideHead);
+    showBubble3D(actors.rtb, '30：2（接牆上 O₂）', '#e0f2fe', '#0369a1');
+  } else if (step === 10) {
+    await runDefibStep(XR, 'rta', 'rtb', tok);
+  } else if (step === 11) {
+    await runHandoverStep(XR, 'rtb', 'rta', tok);
+  }
+}
+
+// ── 共用：D 電擊步驟與最後換手＋ISBAR 交班步驟 ──
+async function runDefibStep(R, compressorKey, airwayKey, tok) {
+  await moveActor3D(actors.rn, R.bedsideL, 750, R.bedLook, tok);
+  if (tok !== stepToken) return;
+  actors.mk.userData.padsGroup.visible = true;
+  showBubble3D(actors.rn, '貼電擊片・判讀 VF', '#ffedd5', '#9a3412');
+  await new Promise(r => setTimeout(r, 950));
+  if (tok !== stepToken) return;
+  clearBubbles3D();
+  await moveActor3D(actors.rn, R.rnCommand, 600, R.bedLook, tok);
+  if (tok !== stepToken) return;
+  actors[compressorKey].userData.pose = 'clear';
+  actors[airwayKey].userData.pose = 'clear';
+  actors.rn.userData.pose = 'clear';
+  actors.mk.userData.cprActive = false;
+  cprPulseRing.visible = false;
+  showBubble3D(actors.rn, '⚡ 大家離開！放電！', '#dc2626', '#fff');
+  await triggerDefibShock3D(new THREE.Vector3(R.bedX, 35, R.bedZ));
+  if (tok !== stepToken) return;
+  clearBubbles3D();
+  actors[compressorKey].userData.pose = 'cpr';
+  actors[airwayKey].userData.pose = 'bagging';
+  actors.rn.userData.pose = 'idle';
+  actors.mk.userData.cprActive = true;
+  cprPulseRing.visible = true;
+  showBubble3D(actors[compressorKey], '放電完畢，立刻繼續壓胸！', '#dcfce7', '#166534');
+}
+
+async function runHandoverStep(R, newCompressorKey, newAirwayKey, tok) {
+  showBubble3D(actors[newCompressorKey], '滿 2 分鐘換手壓胸！', '#dbeafe', '#1e40af');
+  actors[newCompressorKey].userData.handAmbu.visible = false;
+  await Promise.all([
+    moveActor3D(actors[newCompressorKey], R.bedsideR, 1000, R.bedLook, tok),
+    moveActor3D(actors[newAirwayKey], R.bedsideHead, 1000, R.bedLook, tok)
+  ]);
+  if (tok !== stepToken) return;
+  actors[newCompressorKey].userData.pose = 'cpr';
+  actors[newAirwayKey].userData.pose = 'bagging';
+  actors[newAirwayKey].userData.handAmbu.visible = true;
+
+  const tr = getCorridorRoute('entry', R.roomCode);
+  actors.team.visible = true;
+  setActorPos(actors.team, tr[0], R.rnCommand);
+  await moveActorPath3D(actors.team, tr.slice(1), 2200, R.rnCommand, tok);
+  if (tok !== stepToken) return;
+  clearBubbles3D();
+  showBubble3D(actors.rn, '📋 隊長 ISBAR 交班急救小組', '#fef3c7', '#92400e');
+}
+
+// ── 生理監視器即時心電圖 ──────────────────────────────────────
+const ecgCv = document.getElementById('ecgCanvas');
+const ecgCtx = ecgCv.getContext('2d');
+let ecgX = 0;
+
+function updateECGCanvas(now) {
+  ecgCtx.fillStyle = 'rgba(5, 8, 17, 0.16)';
+  ecgCtx.fillRect(0, 0, ecgCv.width, ecgCv.height);
+  const midY = ecgCv.height / 2;
+  let y = midY;
+  if (actors.mk?.userData.cprActive) {
+    const phase = (now * 0.0115) % (Math.PI * 2);
+    y = midY - Math.sin(phase) * 17 - Math.sin(phase * 3) * 5;
+  } else if (curStep >= 1 && curStep < 3) {
+    y = midY + Math.sin(now * 0.035) * 12 + Math.cos(now * 0.082) * 9 + (Math.random() - 0.5) * 8;
+  } else {
+    y = midY + Math.sin(now * 0.02) * 3;
+  }
+  ecgCtx.strokeStyle = actors.mk?.userData.cprActive ? '#4ade80' : '#f87171';
+  ecgCtx.lineWidth = 2.2;
+  ecgCtx.beginPath();
+  ecgCtx.moveTo(ecgX, updateECGCanvas.lastY ?? midY);
+  ecgX = (ecgX + 2.2) % ecgCv.width;
+  if (ecgX < 3) ecgCtx.clearRect(0, 0, ecgCv.width, ecgCv.height);
+  ecgCtx.lineTo(ecgX, y);
+  ecgCtx.stroke();
+  updateECGCanvas.lastY = y;
+}
+
+// ── 主渲染迴圈 ───────────────────────────────────────────────
+function animateLoop(now) {
+  requestAnimationFrame(animateLoop);
+  controls.update();
+  updateECGCanvas(now);
+
+  for (const k of Object.keys(actors)) {
+    tickCharacterAnimation(actors[k], now);
+  }
+
+  if (actors.mk?.userData.cprActive && cprPulseRing.visible) {
+    const comp = Math.abs(Math.sin(now * 0.0115));
+    const s = 1 + comp * 0.45;
+    cprPulseRing.scale.set(s, s, 1);
+    cprPulseRing.material.opacity = 0.85 - comp * 0.55;
+  }
+
+  renderer.render(scene, cam);
+}
+
+// ── UI 事件綁定 ──────────────────────────────────────────────
+function rebuildAndStart(stepIdx = 0) {
+  document.querySelectorAll('#sceneGroup button').forEach(b => b.classList.toggle('on', b.dataset.scene === curSceneId));
+  document.querySelectorAll('#planGroup button').forEach(b => b.classList.toggle('on', Number(b.dataset.plan) === plan));
+  buildHighRealismVenue(plan);
+  spawnActorsForScene();
+  renderCabdTrack();
+  playStep(stepIdx);
+}
+
+document.getElementById('btnPrev').onclick = () => playStep(curStep - 1);
+document.getElementById('btnNext').onclick = () => {
+  const max = SCENARIO_META[curSceneId].steps.length - 1;
+  if (curStep === max) playStep(0);
+  else playStep(curStep + 1);
+};
+document.getElementById('btnReplay').onclick = () => playStep(curStep);
+
+document.getElementById('btnAuto').onclick = e => {
+  autoPlay = !autoPlay;
+  e.currentTarget.textContent = `▶ 連續自動播放：${autoPlay ? '開' : '關'}`;
+  e.currentTarget.classList.toggle('auto-on', autoPlay);
+  if (autoPlay && voiceAudio.paused) {
+    const max = SCENARIO_META[curSceneId].steps.length - 1;
+    playStep(curStep < max ? curStep + 1 : 0);
+  }
+};
+
+document.getElementById('btnMute').onclick = e => {
+  muted = !muted;
+  voiceAudio.muted = muted;
+  e.currentTarget.textContent = muted ? '🔇 語音解說：靜音' : '🔊 語音解說：開';
+};
+
+document.querySelectorAll('#sceneGroup button').forEach(btn => {
+  btn.onclick = () => {
+    curSceneId = btn.dataset.scene;
+    rebuildAndStart(0);
+  };
+});
+
+document.querySelectorAll('#camGroup button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#camGroup button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    camMode = btn.dataset.cam;
+    applyCameraForStep(curStep);
+  };
+});
+
+document.querySelectorAll('#planGroup button').forEach(btn => {
+  btn.onclick = () => {
+    plan = Number(btn.dataset.plan);
+    rebuildAndStart(curStep);
+  };
+});
+
+addEventListener('keydown', e => {
+  const max = SCENARIO_META[curSceneId].steps.length - 1;
+  if (e.key === 'ArrowRight') { e.preventDefault(); if (curStep < max) playStep(curStep + 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); if (curStep > 0) playStep(curStep - 1); }
+  else if (e.key === ' ') { e.preventDefault(); playStep(curStep); }
+});
+
+addEventListener('resize', () => {
+  cam.aspect = innerWidth / innerHeight;
+  cam.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+rebuildAndStart(0);
+requestAnimationFrame(animateLoop);
+</script>
+</body>
+</html>
