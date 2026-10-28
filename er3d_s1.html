@@ -218,6 +218,46 @@
     .btn-ctl { font-size: 12.5px; padding: 6px 10px; }
     .cabd-node { font-size: 12.5px; padding: 3px 7px; }
   }
+
+  /* 手機：控制列不再疊在 3D 畫面上，改成「上方切換列 → 3D 畫面 → 下方講解面板」由上而下排列 */
+  @media (max-width: 600px) {
+    html, body { height: 100%; }
+    body { display: flex; flex-direction: column; }
+    header.topbar {
+      order: 1; position: static; flex: none; margin: 0; border-radius: 0;
+      border-width: 0 0 1px; padding: 6px 8px; gap: 6px; box-shadow: none;
+    }
+    .brand { min-width: 0; width: 100%; margin: 0; gap: 8px; }
+    .brand .badge { font-size: 12px; padding: 3px 9px; }
+    .brand h1 { font-size: 14px; }
+    .brand small { font-size: 11px; }
+    .pill-group { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+    .pill-group::-webkit-scrollbar { display: none; }
+    .pill-group button, .btn-top { font-size: 12.5px; padding: 5px 9px; }
+    #canvas-wrap { order: 2; position: relative; inset: auto; flex: 1 1 auto; min-height: 220px; }
+    #broadcastBanner {
+      top: 8px; width: max-content; max-width: calc(100% - 16px);
+      white-space: normal; text-align: center; font-size: 13px; padding: 5px 12px;
+    }
+    .bottom-dock {
+      order: 3; position: static; flex: none; margin: 0; max-width: none;
+      border-radius: 0; border-width: 1px 0 0; padding: 8px; gap: 7px; box-shadow: none;
+    }
+    .cabd-track { position: relative; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 3px 2px; }
+    .cabd-track::-webkit-scrollbar { display: none; }
+    .cabd-node { flex: none; white-space: nowrap; }
+    .caption-box { flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 10px; min-height: 0; }
+    .step-tag { font-size: 13px; padding: 3px 9px; }
+    .step-text { font-size: 15px; line-height: 1.5; }
+    .ctl-row { gap: 6px; }
+    .ctl-left { width: 100%; display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 6px; }
+    .ctl-left .step-counter { grid-column: 1 / -1; order: -1; }
+    .ctl-right { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .btn-ctl { justify-content: center; font-size: 13px; padding: 8px 6px; }
+    .step-counter { font-size: 12px; padding: 0; text-align: center; white-space: nowrap; }
+    /* 內嵌在急救預案頁時：狀況與標題由卡片決定，人物造型連結在卡片下方，這裡不重複 */
+    body.embed .brand, body.embed #sceneGroup, body.embed header.topbar .btn-top { display: none; }
+  }
 </style>
 <script type="importmap">
 {
@@ -229,7 +269,11 @@
 </script>
 </head>
 <body>
-<div id="canvas-wrap"></div>
+<script>if (new URLSearchParams(location.search).has('embed')) document.body.classList.add('embed');   // 先標記內嵌，載入 3D 前就不會閃出多餘按鈕</script>
+<div id="canvas-wrap">
+  <!-- 廣播橫幅放在 3D 區塊內：手機上會落在 3D 畫面頂端，不會蓋住下方按鈕 -->
+  <div id="broadcastBanner">📢 999 全院急救廣播：電腦斷層室（CT 室）發生急救事件！</div>
+</div>
 
 <header class="topbar">
   <div class="brand">
@@ -263,7 +307,6 @@
   <a class="btn-top btn-back" id="backLink" href="emergency.html#s1">← 返回急救預案</a>
 </header>
 
-<div id="broadcastBanner">📢 999 全院急救廣播：電腦斷層室（CT 室）發生急救事件！</div>
 
 <aside class="side-hud">
   <div class="monitor-card">
@@ -336,7 +379,6 @@ if (EMBED) {
 // ── Three.js 渲染器與高擬真環境設定 ─────────────────────────
 const wrap = document.getElementById('canvas-wrap');
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -351,7 +393,17 @@ scene.fog = new THREE.FogExp2(0x0f172a, 0.00036);
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 
-const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 5, 4500);
+const cam = new THREE.PerspectiveCamera(40, 16 / 9, 5, 4500);
+function fitView() {
+  const w = wrap.clientWidth || innerWidth, h = wrap.clientHeight || innerHeight;
+  cam.aspect = w / h;
+  // 以 16:9 時 40° 的水平視角為準，畫面越窄垂直視角越大（最多 66°）
+  const hHalf = Math.atan(Math.tan(THREE.MathUtils.degToRad(20)) * 16 / 9);
+  cam.fov = Math.min(66, Math.max(40, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(hHalf) / cam.aspect))));
+  cam.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+fitView();
 cam.position.set(490, 620, 920);
 
 const controls = new OrbitControls(cam, renderer.domElement);
@@ -1458,6 +1510,11 @@ async function playStep(idx, { silent = false } = {}) {
     const s = Number(node.dataset.step);
     node.className = 'cabd-node' + (s === curStep ? ' now' : s < curStep ? ' done' : '');
   });
+  // 手機上 CABD 列是橫向捲動：把目前這一步捲到中間（只捲這一列，不用 scrollIntoView 以免帶動外層頁面）
+  const cabdBar = document.getElementById('cabdBar'), nowNode = cabdBar.querySelector('.cabd-node.now');
+  if (nowNode && cabdBar.scrollWidth > cabdBar.clientWidth) {
+    cabdBar.scrollTo({ left: nowNode.offsetLeft - (cabdBar.clientWidth - nowNode.offsetWidth) / 2, behavior: 'smooth' });
+  }
 
   // 先對齊前一步結束的基底狀態
   applySnapshotState(curStep > 0 ? curStep - 1 : 0);
@@ -1851,13 +1908,9 @@ function updateECGCanvas(now) {
 }
 
 // ── 主渲染迴圈 ───────────────────────────────────────────────
-let onScreen = true;
-if (EMBED && 'IntersectionObserver' in window) {
-  new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }).observe(document.getElementById('canvas-wrap'));
-}
 function animateLoop(now) {
   requestAnimationFrame(animateLoop);
-  if (!onScreen) return;
+  if (window.er3dVisible === false) return;   // 內嵌時由急救預案頁告知是否捲出畫面，捲出就不渲染
   controls.update();
   updateECGCanvas(now);
 
@@ -1939,11 +1992,8 @@ addEventListener('keydown', e => {
   else if (e.key === ' ') { e.preventDefault(); playStep(curStep); }
 });
 
-addEventListener('resize', () => {
-  cam.aspect = innerWidth / innerHeight;
-  cam.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+addEventListener('resize', fitView);
+if ('ResizeObserver' in window) new ResizeObserver(fitView).observe(wrap);
 
 rebuildAndStart(0, { silent: EMBED });
 requestAnimationFrame(animateLoop);

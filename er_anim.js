@@ -15,6 +15,12 @@
     fig.append(bar);
   }
 
+  // 捲出畫面的 3D 暫停渲染：由本頁判斷可見度再告訴 3D 頁（3D 頁在 iframe 裡自己判斷不可靠，可能一直以為看不到）
+  const visible = new Map();
+  const tell = f => { try { f.contentWindow.er3dVisible = visible.get(f) ?? true; } catch (e) {} };
+  const io = new IntersectionObserver(es => es.forEach(e => { visible.set(e.target, e.isIntersecting); tell(e.target); }), { rootMargin: '200px 0px' });
+  for (const f of document.querySelectorAll('iframe.er3d')) { io.observe(f); f.addEventListener('load', () => tell(f)); }
+
   const frameInView = () => {
     let best = null, bestD = Infinity;
     for (const f of document.querySelectorAll('iframe.er3d')) {
