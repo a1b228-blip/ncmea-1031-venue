@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>急救情境預案</title>
+<style>
+  html{touch-action:pan-y}
+  html,body{overflow-x:clip;max-width:100%;overscroll-behavior:none}
+  :root{--bg:#f3f5f8;--card:#fff;--ink:#1f2a37;--sub:#5b6472;--line:#e5e7eb;
+    --rn:#7c3aed;--rt:#2563eb;--sp:#059669;--mk:#dc2626;--key-bg:#fef3c7}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang TC","Heiti TC","Microsoft JhengHei",sans-serif;font-size:26px;line-height:1.65}
+  .wrap{padding:24px clamp(16px,3vw,40px) 48px}
+  header.hero{background:linear-gradient(135deg,#7f1d1d,#b91c1c);color:#fff;border-radius:18px;padding:22px 26px;margin-bottom:18px}
+  .hero h1{margin:0;font-size:clamp(34px,4vw,52px)}
+  .hero p{margin:6px 0 0;color:#fee2e2;font-size:24px}
+  .hero .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .hero .meta span{background:rgba(255,255,255,.16);border-radius:999px;padding:2px 14px;font-size:21px}
+  h2{font-size:34px;margin:34px 0 12px;display:flex;align-items:center;gap:12px;scroll-margin-top:90px}
+  h2 .no{display:inline-grid;place-items:center;min-width:52px;height:52px;padding:0 10px;border-radius:12px;background:#1f2a37;color:#fff;font-size:26px}
+  .bar{position:sticky;top:0;z-index:5;background:rgba(243,245,248,.95);backdrop-filter:blur(6px);
+    padding:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
+  .bar a{font-size:21px;color:var(--ink);text-decoration:none;background:#fff;border-radius:999px;padding:3px 14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .bar .plan{margin-left:auto;font-size:21px;color:var(--sub)}
+  .bar .plan b{color:var(--ink)}
+
+  .card{background:var(--card);border-radius:16px;padding:16px 20px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:14px}
+  .res .card h4{margin:0 0 4px;font-size:24px}
+  .res .card p{margin:0;font-size:22px;color:var(--sub)}
+  .ok{color:#15803d;font-weight:800}.ng{color:#b91c1c;font-weight:800}
+
+  .scn{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px;align-items:start}
+  .fig{padding:10px}
+  .fig .pz{border-radius:10px;background:#fbfcfd}
+  .fig svg{display:block;width:100%;height:auto}
+  .route{display:inline-block;margin:8px 4px 0;font-size:20px;font-weight:700;border-radius:8px;padding:2px 12px}
+  .route.near{background:#dcfce7;color:#15803d}.route.far{background:#fee2e2;color:#b91c1c}.route.key{background:#fef3c7;color:#92400e}
+  table{width:100%;border-collapse:collapse;font-size:22px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f8fafc;color:var(--sub);font-size:19px}
+  .who{display:inline-flex;align-items:center;gap:6px;font-weight:700;white-space:nowrap}
+  .dot{width:22px;height:22px;border-radius:50%;display:inline-block;flex:none}
+  ol.steps{margin:12px 0 0;padding-left:34px;font-size:22px}
+  ol.steps li{margin:4px 0}
+  mark{background:linear-gradient(transparent 55%,#fde68a 55%);color:inherit;font-weight:700}
+  .tip{margin-top:12px;border-radius:12px;background:var(--key-bg);border:2px solid #fcd34d;padding:10px 14px;font-size:21px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 20px;font-size:21px;margin-top:6px}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
+  .rules .card b{font-size:24px}
+  .rules .card p{margin:4px 0 0;font-size:21px;color:var(--sub)}
+  @media (max-width:900px){.scn{grid-template-columns:1fr}}
+  @media (max-width:520px){body{font-size:21px}h2{font-size:27px}table,ol.steps{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>急救情境預案</h1>
+    <p>模擬假人突發急救時，人力與急救設備怎麼調度（護理師擔任隊長）</p>
+    <div class="meta"><span>👥 放射師 ×3 ＋ 護理師 ×1</span><span>🩺 標準病人 ×1</span><span>🫀 模擬假人 ×1</span></div>
+  </header>
+
+  <nav class="bar">
+    <a href="#res">現場資源</a><a href="#s1">狀況一</a><a href="#s2">狀況二</a><a href="#s3a">狀況三-A</a><a href="#s3b">狀況三-B</a><a href="#rule">共同原則</a>
+    <span class="plan" id="planTxt"></span>
+  </nav>
+
+  <h2 id="res"><span class="no">📦</span>現場資源（已確認）</h2>
+  <div class="res">
+    <div class="card"><h4>CT 室</h4><p>放射師 ×1、護理師 ×1（隊長）<br><span class="ok">急救車</span>、生理監視器＋血氧機、打藥設備、<span class="ok">牆上氧氣</span></p></div>
+    <div class="card"><h4>一般 X 光室</h4><p>放射師 ×2<br><span class="ng">沒有 AED、沒有急救車</span>；<span class="ok">有牆上氧氣</span></p></div>
+    <div class="card"><h4>等候區（公共開放區）</h4><p>沒有人駐守、<span class="ng">沒有氧氣</span><br>假人躺在<b>推床</b>上；急救時要移入檢查室並隔離家屬</p></div>
+    <div class="card"><h4>急救車</h4><p>全場<b>只有一台</b>，平常在 CT 室<br>車上<span class="ng">沒有氧氣鋼瓶</span>，氧氣一律用牆上出口</p></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <b>圖例</b>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div id="scenarios"></div>
+
+  <h2 id="rule"><span class="no">★</span>隊長的共同原則</h2>
+  <div class="rules">
+    <div class="card"><b>① 先喊人、先撥 999</b><p>用控制台手機<mark>實際撥出</mark>，說出正確地點（CT 室／X 光室）與狀況。</p></div>
+    <div class="card"><b>② 護理師是唯一隊長</b><p>別人先到就<mark>暫代隊長</mark>；護理師到場說「由我指揮」，暫代者用 ISBAR 簡短交班。</p></div>
+    <div class="card"><b>③ 隊長專心指揮與給藥</b><p>壓胸、通氣、貼電擊片交給放射師；隊長判讀心律、喊充電與「大家離開」、給藥（藥名＋劑量＋途徑）。</p></div>
+    <div class="card"><b>④ 標準病人一定有人顧</b><p>暫停檢查、說明延遲、確保安全；打過對比劑要持續觀察過敏反應。</p></div>
+    <div class="card"><b>⑤ 點名分工＋閉環溝通</b><p>「○○負責壓胸」→「收到，我負責壓胸」；每 2 分鐘報時、換手。</p></div>
+    <div class="card"><b>⑥ 999 到場用 ISBAR 交班</b><p>身分、現況、發生經過、已做處置、建議。</p></div>
+  </div>
+</div>
+
+<script src="nozoom.js"></script>
+<script src="panzoom.js"></script>
+<script>
+// 方案一：A＝X 光、B＝CT；方案二：A＝CT、B＝X 光（跟網頁上方的方案按鈕同步）
+const plan = new URLSearchParams(location.search).get('plan') === '2' ? 2 : 1;
+const ROOM = plan === 1 ? { xray: 'A', ct: 'B' } : { xray: 'B', ct: 'A' };
+document.getElementById('planTxt').innerHTML =
+  `目前：<b>方案${plan === 1 ? '一' : '二'}</b>（A＝${plan === 1 ? 'X 光' : 'CT'}、B＝${plan === 1 ? 'CT' : 'X 光'}）`;
+
+const C = { rn: '#7c3aed', rt: '#2563eb', sp: '#059669', mk: '#dc2626', fam: '#6b7280', cart: '#dc2626' };
+const PEOPLE = {
+  rn: { t: '護', c: C.rn, name: '護理師（隊長）' },
+  rtc: { t: 'C', c: C.rt, name: 'CT 放射師' },
+  rta: { t: 'A', c: C.rt, name: 'X 光放射師 A' },
+  rtb: { t: 'B', c: C.rt, name: 'X 光放射師 B' },
+  sp: { t: 'SP', c: C.sp, name: '標準病人' },
+  mk: { t: '假', c: C.mk, name: '模擬假人' },
+};
+
+// 考場配置圖（參賽說明第 3 頁）的座標，示意用
+const ZONE = {
+  A: { x: 635, y: 166, w: 225, h: 286 },
+  B: { x: 210, y: 270, w: 256, h: 182 },
+  wait: { x: 210, y: 166, w: 256, h: 100 },
+  hall: { x: 466, y: 198, w: 169, h: 50 },
+};
+// 各區的站位點
+const SLOT = {
+  // 0、1：房間下方兩人；2：病人推床（中央）；3：支援者（推床右側）；4：急救車
+  A: [[685, 392], [810, 392], [747, 300], [818, 300], [690, 238]],
+  B: [[262, 400], [412, 400], [338, 345], [425, 345], [262, 340]],
+  wait: [[258, 214], [430, 214], [345, 236]],
+};
+// 房間之間的路線（經走道、等候區）
+const PATH = {
+  'A>B': [[690, 300], [640, 223], [470, 223], [340, 236], [320, 330]],
+  'B>A': [[320, 330], [340, 236], [470, 223], [640, 223], [690, 300]],
+  'wait>A': [[285, 214], [470, 223], [640, 223], [710, 290]],
+  'wait>B': [[270, 232], [305, 330]],
+  'A>wait': [[700, 280], [640, 223], [470, 223], [370, 234]],
+  'B>wait': [[412, 395], [380, 300], [355, 256]],
+};
+const pt = (z, i) => SLOT[z][i];
+
+function svgFor(s) {
+  const roomName = z => z === ROOM.ct ? 'CT 室' : 'X 光室';
+  const fill = z => z === ROOM.ct ? '#f6c39f' : '#9ec3ea';
+  let g = `<defs>
+    <marker id="ar-${s.id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker>
+  </defs>`;
+  // 區域
+  g += `<rect x="186" y="140" width="702" height="330" rx="10" fill="#eef1f5"/>`;
+  g += `<rect x="482" y="260" width="137" height="192" fill="#d5dae1"/><text x="550" y="360" font-size="15" text-anchor="middle" fill="#6b7280">非使用區</text>`;
+  for (const z of ['wait', 'hall', 'A', 'B']) {
+    const r = ZONE[z], f = z === 'wait' ? '#c5e0b4' : z === 'hall' ? '#e5e7eb' : fill(z);
+    g += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${f}" stroke="#475569" stroke-width="3"/>`;
+  }
+  g += `<text x="${ZONE.wait.x + 12}" y="${ZONE.wait.y + 24}" font-size="18" font-weight="700" fill="#14532d">等候區（公共）</text>`;
+  g += `<text x="550" y="228" font-size="16" text-anchor="middle" fill="#475569">走道</text>`;
+  for (const z of ['A', 'B']) {
+    const r = ZONE[z];
+    g += `<text x="${r.x + r.w - 10}" y="${r.y + 26}" font-size="20" font-weight="800" text-anchor="end" fill="#1f2a37">${z}｜${roomName(z)}</text>`;
+    // 牆上氧氣（兩間檢查室都有）
+    g += `<g transform="translate(${r.x + 14},${r.y + 14})"><rect width="44" height="24" rx="6" fill="#0ea5e9"/><text x="22" y="17" font-size="14" font-weight="800" text-anchor="middle" fill="#fff">O₂</text></g>`;
+  }
+  // 門：A 室進出大門、等候區外門封閉
+  g += `<line x1="688" y1="166" x2="735" y2="166" stroke="#eef1f5" stroke-width="7"/><text x="711" y="156" font-size="14" text-anchor="middle" fill="#b91c1c" font-weight="700">進出大門</text>`;
+  g += `<line x1="318" y1="166" x2="361" y2="166" stroke="#dc2626" stroke-width="6"/><text x="340" y="156" font-size="13" text-anchor="middle" fill="#b91c1c">外門封閉</text>`;
+
+  // 移動箭頭
+  const line = (pts, color, dash = '8 6') => `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="${dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar-${s.id})"/>`;
+  for (const m of s.moves || []) g += line(m.path, m.color, m.dash);
+
+  // 急救車
+  for (const c of s.carts || []) {
+    const [x, y] = c.at;
+    g += `<g transform="translate(${x - 30},${y - 15})"><rect width="60" height="30" rx="6" fill="${c.ghost ? '#fecaca' : C.cart}" stroke="#7f1d1d" stroke-width="${c.ghost ? 1.5 : 2}" ${c.ghost ? 'stroke-dasharray="4 3"' : ''}/><text x="30" y="20" font-size="14" font-weight="800" text-anchor="middle" fill="${c.ghost ? '#7f1d1d' : '#fff'}">急救車</text></g>`;
+  }
+  // 家屬
+  for (const f of s.family || []) {
+    const [x, y] = f;
+    g += `<g transform="translate(${x},${y})"><circle r="15" fill="#e5e7eb" stroke="${C.fam}" stroke-width="2"/><text y="5" font-size="13" text-anchor="middle" fill="#374151" font-weight="700">家屬</text>
+      <text x="0" y="-21" font-size="13" text-anchor="middle" fill="#374151" font-weight="700">請在外等候</text></g>`;
+  }
+  // 人
+  for (const p of s.people) {
+    const P = PEOPLE[p.who], [x, y] = p.at, R = p.who === 'mk' ? 20 : 17;
+    const ghost = p.ghost;
+    g += `<g transform="translate(${x},${y})" opacity="${ghost ? .45 : 1}">`;
+    if (p.who === 'mk') g += `<rect x="-34" y="-14" width="68" height="28" rx="8" fill="#fff" stroke="#9ca3af" stroke-width="2"/>`;      // 推床
+    if (p.lead) g += `<circle r="${R + 6}" fill="none" stroke="#f59e0b" stroke-width="4"/>`;
+    g += `<circle r="${R}" fill="${P.c}" stroke="#fff" stroke-width="2.5"/><text y="6" font-size="${P.t.length > 1 ? 14 : 17}" font-weight="800" text-anchor="middle" fill="#fff">${P.t}</text>`;
+    if (p.lead) g += `<text x="${R}" y="${-R + 2}" font-size="18">⭐</text>`;
+    if (p.tag) g += `<text y="${p.who === 'mk' ? -R - 10 : R + 20}" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37" paint-order="stroke" stroke="#fff" stroke-width="4">${p.tag}</text>`;
+    g += `</g>`;
+  }
+  return `<svg viewBox="180 130 715 350" role="img" aria-label="${s.title} 示意圖">${g}</svg>`;
+}
+
+// ── 四種狀況（位置依方案自動換算）──────────────────────
+const ct = ROOM.ct, xr = ROOM.xray;
+const route = (from, to) => PATH[`${from}>${to}`];
+const SCN = [
+  {
+    id: 's1', no: '一', title: '假人在 CT 室急救，標準病人在 X 光室',
+    badge: '最有利：人和設備都在現場',
+    people: [
+      { who: 'mk', at: pt(ct, 2), tag: 'CT 床上' },
+      { who: 'rn', at: pt(ct, 0), lead: true, tag: '指揮・給藥・電擊' },
+      { who: 'rtc', at: pt(ct, 1), tag: '壓胸' },
+      { who: 'rta', at: pt(ct, 3), tag: '通氣・輪替壓胸' },
+      { who: 'rta', at: pt(xr, 3), ghost: true },
+      { who: 'rtb', at: pt(xr, 1), tag: '顧 SP' },
+      { who: 'sp', at: pt(xr, 0), tag: '暫停檢查' },
+    ],
+    moves: [{ path: route(xr, ct), color: C.rt }],
+    carts: [{ at: pt(ct, 4) }],
+    roles: [['rn', '隊長：喊人、撥 999、分工、判讀心律、給藥'], ['rtc', '口述「退床」移出機架，立刻壓胸'],
+      ['rta', '從 X 光室支援：接牆上氧氣、甦醒球通氣，每 2 分鐘換手壓胸'], ['rtb', '留守 X 光室，暫停檢查、安撫並確保 SP 安全']],
+    steps: ['CT 放射師發現 → 喊人 → 退床並壓胸', '護理師接手指揮、撥 999、推急救車到床邊', 'X 光放射師 A 進 CT 室接氧氣、通氣', '每 2 分鐘換手；對比劑反應要停止注射、保留管路'],
+  },
+  {
+    id: 's2', no: '二', title: '假人在 X 光室急救，標準病人在 CT 室',
+    badge: '最難：急救現場沒有急救車',
+    people: [
+      { who: 'mk', at: pt(xr, 2), tag: 'X 光床上' },
+      { who: 'rta', at: pt(xr, 0), tag: '暫代隊長→通氣' },
+      { who: 'rtb', at: pt(xr, 1), tag: '壓胸' },
+      { who: 'rn', at: pt(xr, 3), lead: true, tag: '到場接手指揮' },
+      { who: 'rn', at: pt(ct, 3), ghost: true },
+      { who: 'rtc', at: pt(ct, 1), tag: '顧 SP・觀察過敏' },
+      { who: 'sp', at: pt(ct, 0), tag: '暫停檢查' },
+    ],
+    moves: [{ path: route(ct, xr), color: C.rn }],
+    carts: [{ at: pt(ct, 4), ghost: true }, { at: pt(xr, 4) }],
+    roles: [['rta', '發現者暫代隊長：喊人、撥 999、打給 CT 室要急救車、接牆上氧氣'], ['rtb', '立刻壓胸，急救車到前不能停'],
+      ['rn', '推急救車經走道、等候區趕到，說「由我指揮」接手，電擊與給藥'], ['rtc', '留守 CT 室顧 SP；打過對比劑要持續觀察']],
+    steps: ['X 光放射師 B 立刻壓胸；A 撥 999 並打給 CT 室', 'A 接牆上氧氣、甦醒球通氣', '護理師推急救車趕到 → ISBAR 交班 → 接手指揮', '貼電擊片（放射師）→ 判讀、放電、給藥（護理師）'],
+  },
+  {
+    id: 's3a', no: '三-A', title: '假人在等候區倒下，標準病人在 X 光室',
+    badge: '推床推進 CT 室（沒有 SP 的那間）',
+    dest: ct,
+    people: [
+      { who: 'mk', at: pt('wait', 0), ghost: true },
+      { who: 'mk', at: pt(ct, 2), tag: '推床移入' },
+      { who: 'rn', at: pt(ct, 0), lead: true, tag: '指揮・給藥・電擊' },
+      { who: 'rtc', at: pt(ct, 1), tag: '推床・壓胸' },
+      { who: 'rta', at: pt('wait', 2), tag: '隔離家屬→回來輪替' },
+      { who: 'rtb', at: pt(xr, 1), tag: '顧 SP' },
+      { who: 'sp', at: pt(xr, 0), tag: '暫停檢查' },
+    ],
+    family: [[430, 222]],
+    moves: [{ path: route('wait', ct), color: C.mk, dash: '10 5' }, { path: route(xr, 'wait'), color: C.rt }],
+    carts: [{ at: pt(ct, 4) }],
+    roles: [['rtc', '第一發現者：推床上先壓胸、喊人'], ['rn', '急救車留在 CT 室；病人推進來後接手指揮'],
+      ['rta', '從 X 光室出來隔離家屬，關門後回來通氣、輪替壓胸'], ['rtb', '留守 X 光室顧 SP']],
+    steps: ['推床上先壓胸、喊人', '第二人到 → 推床推進 CT 室（中斷壓胸 10 秒內）', '進房接牆上氧氣、撥 999（地點說「CT 室」）', '請家屬在外等候、關門；護理師指揮電擊與給藥'],
+  },
+  {
+    id: 's3b', no: '三-B', title: '假人在等候區倒下，標準病人在 CT 室',
+    badge: '推床推進 X 光室（沒有 SP 的那間）',
+    dest: xr,
+    people: [
+      { who: 'mk', at: pt('wait', 0), ghost: true },
+      { who: 'mk', at: pt(xr, 2), tag: '推床移入' },
+      { who: 'rta', at: pt(xr, 1), tag: '推床・壓胸' },
+      { who: 'rn', at: pt(xr, 3), lead: true, tag: '帶急救車接手指揮' },
+      { who: 'rn', at: pt(ct, 3), ghost: true },
+      { who: 'rtb', at: pt('wait', 2), tag: '隔離家屬→回來輪替' },
+      { who: 'rtc', at: pt(ct, 1), tag: '顧 SP' },
+      { who: 'sp', at: pt(ct, 0), tag: '暫停檢查' },
+    ],
+    family: [[430, 222]],
+    moves: [{ path: route('wait', xr), color: C.mk, dash: '10 5' }, { path: route(ct, xr), color: C.rn }],
+    carts: [{ at: pt(ct, 4), ghost: true }, { at: pt(xr, 4) }],
+    roles: [['rta', '第一發現者暫代隊長：推床上壓胸、推進 X 光室、撥 999'], ['rn', '推急救車到 X 光室，說「由我指揮」接手'],
+      ['rtb', '隔離家屬、關門後回來通氣、輪替壓胸'], ['rtc', '留守 CT 室顧 SP']],
+    steps: ['推床上先壓胸、喊人', '推床推進 X 光室（中斷壓胸 10 秒內）→ 接牆上氧氣', '撥 999（地點說「X 光室」）、打給 CT 室要急救車', '請家屬在外等候、關門；護理師帶急救車到場接手'],
+  },
+];
+
+// 等候區→目的地的距離（等候區緊鄰 B 室）
+const near = z => z === 'B';
+let html = '';
+for (const s of SCN) {
+  let routeTag = '';
+  if (s.dest) routeTag = `<span class="route ${near(s.dest) ? 'near' : 'far'}">推床到目的地：${near(s.dest) ? '就在隔壁，最近' : '要經過走道，較遠'}</span>`;
+  if (s.id === 's2') routeTag = `<span class="route far">急救車路線：CT → 走道 → 等候區 → X 光室</span>`;
+  const rows = s.roles.map(([w, t]) => `<tr><td><span class="who"><span class="dot" style="background:${PEOPLE[w].c}"></span>${PEOPLE[w].name}</span></td><td>${t}</td></tr>`).join('');
+  html += `<h2 id="${s.id}"><span class="no">${s.no}</span>${s.title}</h2>
+  <div class="scn">
+    <div class="card fig"><div class="pz">${svgFor(s)}</div><span class="route ${s.id === 's1' ? 'near' : 'key'}">${s.badge}</span>${routeTag}</div>
+    <div class="card"><table><tr><th>人員</th><th>任務</th></tr>${rows}</table>
+      <ol class="steps">${s.steps.map(t => `<li>${t}</li>`).join('')}</ol>
+      ${s.id.startsWith('s3') ? '<div class="tip">推床上壓胸要<mark>墊急救板</mark>；規定不能調整推床高度，必要時口述。搬動模擬人動作要溫和。</div>' : ''}
+      ${s.id === 's2' ? '<div class="tip">急救車到之前<mark>只能靠徒手 CPR＋牆上氧氣</mark>；先把等候區的椅子推開，讓急救車通過。</div>' : ''}
+    </div>
+  </div>`;
+}
+document.getElementById('scenarios').innerHTML = html;
+document.querySelectorAll('.fig .pz').forEach(b => panZoom(b));
+
+// 圖例
+document.getElementById('legend').innerHTML = [
+  ['rn', '護理師（⭐ 隊長）'], ['rtc', 'CT 放射師（C）'], ['rta', 'X 光放射師（A／B）'], ['sp', '標準病人（SP）'], ['mk', '模擬假人（在推床上）'],
+].map(([w, t]) => `<span><span class="dot" style="background:${PEOPLE[w].c}"></span>${t}</span>`).join('') +
+  '<span><span class="dot" style="background:#fecaca;border:2px dashed #7f1d1d;border-radius:4px"></span>半透明＝原本位置</span>' +
+  '<span><span style="display:inline-block;width:36px;border-top:4px dashed #374151"></span>移動路線</span>' +
+  '<span><span class="dot" style="background:#0ea5e9;border-radius:5px"></span>牆上氧氣 O₂</span>';
+</script>
+</body>
+</html>

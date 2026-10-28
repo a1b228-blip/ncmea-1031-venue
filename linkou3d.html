@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>林口場地 3D 配置</title>
+<style>
+  html{touch-action:pan-y}                                    /* 只允許上下捲動，觸控也不能左右滑、不能捏合縮放整頁 */
+  html,body{overflow-x:clip;max-width:100%;overscroll-behavior:none}                    /* 網頁寬度固定；不回彈、不左右滑動換頁 */
+  html,body{margin:0;width:100%;height:100%;background:#eef1f5;overflow:hidden;
+    font-family:"PingFang TC","Heiti TC","Microsoft JhengHei",sans-serif}
+  #title{position:absolute;left:3vw;top:2.3vw;color:#1f2a37;pointer-events:none}
+  #title h1{margin:0;font-size:clamp(16px,1.9vw,46px);letter-spacing:2px}
+  #title p{margin:.4em 0 0;font-size:clamp(12px,1.1vw,26px);color:#4b5563}
+  #legend{position:absolute;right:2vw;top:2.3vw;background:#fff;border-radius:12px;
+    padding:.7em 1em;font-size:clamp(11px,1vw,24px);color:#1f2a37;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+  #legend div{display:flex;align-items:center;gap:.5em;margin:.25em 0}
+  #legend i{display:inline-block;width:1.1em;height:.75em;border-radius:3px}
+  #view{position:absolute;left:3vw;bottom:1.5vw;display:flex;gap:6px}
+  #view button{border:0;border-radius:8px;padding:.45em .9em;font:inherit;font-size:clamp(12px,.9vw,20px);
+    background:#fff;color:#4b5563;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  #view button.on{background:#1f2a37;color:#fff}
+  body.embed #title{display:none}
+  body.shot #view{display:none}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="title"><h1 id="t1"></h1><p id="t2"></p></div>
+<div id="legend">
+  <div><i style="background:#9ec3ea"></i>一般 X 光室</div>
+  <div><i style="background:#f6c39f"></i>電腦斷層室（CT）</div>
+  <div><i style="background:#c5e0b4"></i>等候區</div>
+  <div><i style="background:#ddc6f5"></i>走道（兩室連通）</div>
+  <div><i style="background:#fde68a"></i>團隊入闈教室</div>
+  <div><i style="background:#e53935"></i>封鎖・禁止進入</div>
+</div>
+<div id="view"><button data-v="all" class="on">3D 全區</button><button data-v="zone">3D 競賽區特寫</button><button data-v="plan">2D 平面圖</button><button data-v="plan2">2D 競賽區</button></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { buildExamInterior } from './exam_equipment.js';
+import { installZoom } from './zoom3d.js';
+
+// 座標：x、z ＝ 林口長庚平面圖.jpg 的像素位置（960×620），y ＝ 高度
+const qs = new URLSearchParams(location.search);
+const plan = qs.get('plan') === '2' ? 2 : 1;
+if (qs.has('embed')) document.body.classList.add('embed');
+if (qs.has('shot')) document.body.classList.add('shot');
+const roomType = plan === 1 ? { A: 'xray', B: 'ct' } : { A: 'ct', B: 'xray' };
+const NAME = { xray: '一般X光室', ct: '電腦斷層室（CT）' };
+const FLOOR = { xray: 0x9ec3ea, ct: 0xf6c39f };
+document.getElementById('t1').textContent = `林口長庚場地＋考場 3D 配置｜方案${plan === 1 ? '一' : '二'}`;
+document.getElementById('t2').textContent =
+  `模擬教室(一)＝檢查室 A（${NAME[roomType.A]}）　／　模擬教室(二)＝等候區＋檢查室 B（${NAME[roomType.B]}）`;
+
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));   // 高解析輸出
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xeef1f5);
+
+const VIEWS = {
+  all:  { target: [500, 0, 300], pos: [500 - 160, 820, 300 + 600], zoom: 1.0, span: 640 },
+  zone: { target: [362, 0, 278], pos: [362 - 90, 470, 278 + 340], zoom: 1.0, span: 300 },
+  plan: { target: [480, 0, 310], pos: [480, 1200, 310.5], zoom: 1.0, span: 640 },        // 正上方俯視＝2D 平面圖
+  plan2:{ target: [392, 0, 287], pos: [392, 1200, 287.5], zoom: 1.0, span: 215 },
+};
+const fitSpan = (base, a) => Math.max(base, base * 1.6 / a);
+let aspect = W / H, view = 'all', span = fitSpan(VIEWS.all.span, aspect);
+const cam = new THREE.OrthographicCamera(-span * aspect / 2, span * aspect / 2, span / 2, -span / 2, 1, 5000);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb0b8c4, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(350, 900, 800); sun.target.position.set(470, 0, 320);
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -700, right: 700, top: 700, bottom: -700, near: 10, far: 3000 });
+sun.shadow.bias = -0.0005;
+scene.add(sun, sun.target);
+
+const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: 0.05 });
+function box(x1, z1, x2, z2, y1, y2, color, shadow = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1), mat(color));
+  m.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+  m.castShadow = shadow; m.receiveShadow = true; scene.add(m); return m;
+}
+function cyl(x, z, r, y1, y2, color) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y2 - y1, 24), mat(color));
+  m.position.set(x, (y1 + y2) / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m); return m;
+}
+function label(text, x, y, z, { size = 14, bg = 'rgba(255,255,255,.93)', fg = '#1f2a37', bold = true, border = null } = {}) {
+  const s = 4, cv = document.createElement('canvas'), g = cv.getContext('2d');
+  const font = `${bold ? 700 : 500} ${size * s}px "PingFang TC","Heiti TC",sans-serif`;
+  g.font = font;
+  const lines = text.split('\n'), tw = Math.max(...lines.map(l => g.measureText(l).width));
+  const pad = size * s * 0.45, lh = size * s * 1.3;
+  cv.width = tw + pad * 2; cv.height = lh * lines.length + pad;
+  g.font = font; g.fillStyle = bg;
+  g.beginPath(); g.roundRect(0, 0, cv.width, cv.height, size * s * 0.3); g.fill();
+  if (border) { g.lineWidth = s * 2.5; g.strokeStyle = border; g.stroke(); }
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  lines.forEach((l, i) => g.fillText(l, cv.width / 2, pad * 0.5 + lh * (i + 0.5)));
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  const k = 0.42 / s; sp.scale.set(cv.width * k, cv.height * k, 1);
+  sp.position.set(x, y, z); sp.renderOrder = 10; scene.add(sp); return sp;
+}
+const labels = [];                                  // 依視角切換顯示的小標籤
+const tag = (...a) => { const s = label(...a); labels.push(s); return s; };
+
+// ── 地面與一般房間（依主辦單位第 2 頁標籤命名）──────────────
+box(0, 0, 960, 620, -4, -0.5, 0xdfe4ea, false);
+const CORR = 0xf5f6f8;
+for (const [x1, z1, x2, z2] of [[65, 59, 445, 88], [65, 170, 445, 200], [245, 200, 292, 475], [45, 475, 445, 500],
+  [445, 70, 905, 105], [440, 0, 455, 500]]) box(x1, z1, x2, z2, -0.5, 0, CORR, false);
+
+const RH = 7, RW = 2, RC = 0x8b95a5;               // 一般房間：低矮外框牆
+function room(x1, z1, x2, z2, color, name, size = 12) {
+  box(x1, z1, x2, z2, 0, 0.4, color, false);
+  box(x1, z1, x2, z1 + RW, 0, RH, RC); box(x1, z2 - RW, x2, z2, 0, RH, RC);
+  box(x1, z1, x1 + RW, z2, 0, RH, RC); box(x2 - RW, z1, x2, z2, 0, RH, RC);
+  if (name) label(name, (x1 + x2) / 2, 14, (z1 + z2) / 2, { size, bold: false });
+}
+const TEAM = 0xfde68a, CLS = 0xdbeafe, GREY = 0xd1d5db;
+room(81, 13, 151, 59, GREY, '更衣室(女)');
+room(151, 13, 224, 59, TEAM, '入闈\n教室6'); room(224, 13, 297, 59, TEAM, '入闈\n教室7');
+room(297, 13, 370, 59, TEAM, '入闈\n教室8'); room(370, 13, 445, 59, CLS, '教室9');
+room(80, 88, 150, 134, GREY, '更衣室(女)');
+room(150, 88, 222, 134, TEAM, '入闈\n教室3'); room(222, 88, 295, 134, TEAM, '入闈\n教室2');
+room(295, 88, 365, 134, TEAM, '入闈\n教室1');
+room(455, 13, 530, 70, GREY, '更衣室(男)'); room(530, 13, 597, 70, CLS, '教室11'); room(597, 13, 665, 70, CLS, '教室12');
+room(665, 13, 720, 70, 0xe9d5ff, '控制室'); room(720, 13, 820, 70, 0xfef08a, '報到區', 15);
+room(820, 13, 900, 70, 0xe5e7eb, '廁所'); room(900, 13, 958, 100, 0xf1f5f9, '');
+room(245, 138, 362, 168, 0xe5e7eb, ''); room(390, 105, 440, 165, 0xe5e7eb, '');   // 主辦單位已遮蔽名稱
+room(65, 140, 240, 170, 0xcbd5e1, 'L棟電梯');
+room(65, 205, 245, 260, 0xe5e7eb, '樓梯'); room(50, 260, 245, 297, 0xd9e5c9, '教具間');
+room(10, 297, 245, 410, 0xc4d5e9, '競賽說明、觀摩教室', 15); room(100, 420, 245, 475, 0xe5e7eb, '樓梯');
+room(292, 370, 440, 405, 0xd9e5c9, '教具間'); room(292, 410, 445, 475, 0xfecaca, 'Debrief 教室', 13);
+room(45, 500, 180, 605, 0xfecaca, '評審委員休息室', 12); room(180, 500, 312, 605, 0xfecaca, '工作人員休息室', 12);
+room(312, 500, 445, 605, 0xfecaca, '');
+room(455, 385, 520, 505, 0xe5e7eb, '樓梯'); room(525, 478, 580, 560, 0xfef9c3, '考官／標準化\n病人廁所', 10);
+room(620, 500, 735, 580, 0xcbd5e1, 'K棟電梯');
+
+// ── 競賽區：模擬教室(一)(二)＋中央影音控制室（實牆、門洞依考場配置圖）──
+const WH = 15, WC = 0x5b6472;
+const wall = (x1, z1, x2, z2, h = WH) => box(x1, z1, x2, z2, 0, h, WC);
+box(292, 205, 440, 270, 0, 0.6, FLOOR[roomType.A], false);              // 檢查室 A
+box(292, 270, 327, 300, 0, 0.6, 0xddc6f5, false);                       // 走道
+box(327, 270, 440, 300, 0, 9, 0xb6bfcc);                                 // 中央影音控制室（不開放）
+box(292, 300, 344, 370, 0, 0.6, 0xc5e0b4, false);                       // 等候區
+box(344, 300, 440, 370, 0, 0.6, FLOOR[roomType.B], false);              // 檢查室 B
+wall(290, 203, 442, 207);                                               // 北牆（原雙開門不使用）
+// 西牆：依考場配置圖，進出大門直通檢查室 A（與等候區封閉外門同一面牆）
+wall(290, 203, 294, 241); wall(290, 254, 294, 372);
+wall(438, 203, 442, 372);                                               // 東牆
+wall(327, 268, 440, 272); wall(327, 298, 440, 302);                     // 控制室上下牆（走道段留通）
+wall(290, 368, 442, 372);                                               // 南牆
+wall(344, 302, 351, 347, 10);                                           // 等候區／檢查室 B 隔間（考場圖矩形 46），南端留通道
+// 等候區外門（考場圖北牆那扇）：依指示封閉
+box(286, 329, 289.5, 340, 2, 13, 0xe53935);
+
+// 動線箭頭
+function arrow(cx, cz, len, rotDeg, color = 0xe53935) {
+  const L = len / 2, w = 2.2, hw = 5, hl = 6, s = new THREE.Shape();
+  s.moveTo(-L, 0); s.lineTo(-L + hl, hw); s.lineTo(-L + hl, w); s.lineTo(L - hl, w); s.lineTo(L - hl, hw);
+  s.lineTo(L, 0); s.lineTo(L - hl, -hw); s.lineTo(L - hl, -w); s.lineTo(-L + hl, -w); s.lineTo(-L + hl, -hw); s.closePath();
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 1, bevelEnabled: false }),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
+  m.rotation.x = -Math.PI / 2; m.rotation.z = -rotDeg * Math.PI / 180;
+  m.position.set(cx, 1, cz); scene.add(m);
+}
+arrow(278, 247.5, 30, 0); arrow(322, 269, 24, 90); arrow(322, 301, 22, 90); arrow(348, 357.7, 26, 0);
+
+// ── 考場內部擺設：與考場 3D 共用 exam_equipment.js ─────────────
+// 考場配置圖（第 3 頁）座標 → 林口平面圖座標：逆時針轉 90°；
+// A 室對模擬教室(一)，等候區＋B 室對模擬教室(二)。設備整組等比例縮小、不變形。
+const S = 0.3;
+function mapPt(x, z) {
+  const X = 294 + (z - 166) / 286 * 144;
+  const Z = x >= 550 ? 268 - (x - 635) / 225 * 61 : 368 - (x - 210) / 256 * 66;
+  return [X, Z];
+}
+let T = scene, anchor = null;
+function gMesh(m) { m.castShadow = m.receiveShadow = true; T.add(m); return m; }
+buildExamInterior({
+  THREE, mat,
+  add: gMesh,
+  box: (x1, z1, x2, z2, y1, y2, c) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1), mat(c));
+    m.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2); gMesh(m);
+  },
+  cyl: (x, z, r, y1, y2, c) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y2 - y1, 24), mat(c));
+    m.position.set(x, (y1 + y2) / 2, z); gMesh(m);
+  },
+  label: (text, x, y, z, o = {}) => {              // 跟著所屬設備一起轉向、縮放
+    const X = anchor.X + S * (z - anchor.az), Z = anchor.Z - S * (x - anchor.ax);
+    tag(text, X, y * S + 4, Z, { ...o, size: (o.size || 20) * 0.36 });
+  },
+  rigid: (ax, az, fn) => {
+    const [X, Z] = mapPt(ax, az), g = new THREE.Group();
+    anchor = { ax, az, X, Z }; T = g; fn(); T = scene; anchor = null;
+    g.scale.setScalar(S); g.rotation.y = Math.PI / 2;
+    g.position.set(X - S * az, 0, Z + S * ax); scene.add(g);
+  },
+}, roomType);
+
+// ── 主辦單位紅色封鎖線（第 2 頁）→ 3D 紅色隔板 ─────────────
+function barrier(x1, z1, x2, z2, name) {
+  const len = Math.hypot(x2 - x1, z2 - z1);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(len, 18, 3), new THREE.MeshStandardMaterial({ color: 0xe53935, roughness: .45 }));
+  m.position.set((x1 + x2) / 2, 9, (z1 + z2) / 2); m.rotation.y = -Math.atan2(z2 - z1, x2 - x1);
+  m.castShadow = true; scene.add(m);
+  for (const t of [-.3, 0, .3]) {                                       // 白色斜紋
+    const st = new THREE.Mesh(new THREE.BoxGeometry(2, 18, 3.4), mat(0xffffff));
+    st.position.copy(m.position).add(new THREE.Vector3(Math.cos(m.rotation.y) * len * t, 0, -Math.sin(m.rotation.y) * len * t));
+    st.rotation.y = m.rotation.y; st.rotation.z = .5; scene.add(st);
+  }
+  label(`${name}\n禁止進入`, (x1 + x2) / 2, 36, (z1 + z2) / 2, { size: 12, bg: '#e53935', fg: '#fff' });
+}
+barrier(249, 168, 249, 202, '封鎖1');
+barrier(247, 467, 307, 504, '封鎖2');
+barrier(362, 170, 390, 170, '封鎖3');
+
+// 報到入口
+arrow(872, 135, 60, 135); label('報到入口', 905, 22, 150, { size: 14, bg: '#e53935', fg: '#fff' });
+
+// 區域大標
+const bd = r => ({ size: 13, border: roomType[r] === 'ct' ? '#e07b39' : '#3b82c4' });
+const txt = r => `檢查室 ${r}｜${NAME[roomType[r]]}\n模擬教室(${r === 'A' ? '一' : '二'})`;
+const big3d = [label(txt('A'), 366, 52, 222, bd('A')), label(txt('B'), 392, 50, 352, bd('B'))];
+const big2d = [label(txt('A'), 492, 5, 255, bd('A')), label(txt('B'), 492, 5, 340, bd('B'))];   // 2D 時放在房間東側空地
+tag('等候區', 318, 22, 335, { size: 8 });
+tag('走道', 309, 18, 285, { size: 7.5 });
+label('中央影音控制室', 384, 22, 285, { size: 8, bold: false });
+label('進出大門', 262, 30, 238, { size: 10, bg: '#e53935', fg: '#fff' });
+tag('外門封閉', 278, 26, 334, { size: 7.5, bg: '#e53935', fg: '#fff' });
+
+// ── 視角與互動 ─────────────────────────────────
+const controls = new OrbitControls(cam, renderer.domElement);
+controls.maxPolarAngle = Math.PI / 2.1;
+const render = () => renderer.render(scene, cam);
+function setView(v) {
+  view = v; const P = VIEWS[v];
+  span = fitSpan(P.span, innerWidth / innerHeight);
+  const a = innerWidth / innerHeight;
+  Object.assign(cam, { left: -span * a / 2, right: span * a / 2, top: span / 2, bottom: -span / 2, zoom: P.zoom });
+  cam.position.set(...P.pos); controls.target.set(...P.target); cam.updateProjectionMatrix(); controls.update();
+  labels.forEach(s => s.visible = v !== 'all');
+  controls.enableRotate = !v.startsWith('plan');
+  zoomUI?.setPan(v.startsWith('plan'));                                 // 2D 預設抓取平移，3D 預設旋轉
+  const flat = v.startsWith('plan');                                    // 2D 平面圖不畫陰影，線條較清楚
+  if (sun.castShadow === flat) { sun.castShadow = !flat; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); }
+  big3d.forEach(s => s.visible = !v.startsWith('plan'));
+  document.getElementById('t1').textContent = `林口長庚場地＋考場 ${flat ? '2D 平面圖' : '3D 配置'}｜方案${plan === 1 ? '一' : '二'}`; big2d.forEach(s => s.visible = v.startsWith('plan'));
+  document.querySelectorAll('#view button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  render();
+}
+document.getElementById('view').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setView(b.dataset.v); });
+controls.addEventListener('change', render);
+const zoomUI = installZoom({ cam, controls, render, reset: () => setView(view) });
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); setView(view); });
+setView(VIEWS[qs.get('view')] ? qs.get('view') : 'all');
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

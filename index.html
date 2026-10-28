@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>競賽場地配置圖</title>
+<style>
+  html{touch-action:pan-y}                                    /* 只允許上下捲動，觸控也不能左右滑、不能捏合縮放整頁 */
+  html,body{overflow-x:clip;max-width:100%;overscroll-behavior:none}                    /* 網頁寬度固定；不回彈、不左右滑動換頁 */
+  :root{--bg:#eef1f5;--card:#fff;--ink:#1f2a37;--sub:#6b7280;--accent:#2563eb}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:"PingFang TC","Heiti TC","Microsoft JhengHei",sans-serif}
+  body{display:flex;flex-direction:column}
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:14px 20px;background:var(--card);
+    box-shadow:0 2px 10px rgba(0,0,0,.06)}
+  header h1{margin:0;font-size:20px}
+  /* 上方列在每個分頁都維持同樣的按鈕與位置；窄螢幕自動換行，不左右滑動 */
+  .group{display:flex;flex-wrap:wrap;max-width:100%;background:#e5e7eb;border-radius:10px;padding:3px}
+  .group button{flex:none}
+  .group.off{opacity:.4;pointer-events:none}
+  .group button{border:0;background:transparent;padding:8px 14px;border-radius:8px;font:inherit;font-size:15px;
+    color:var(--sub);cursor:pointer;white-space:nowrap}
+  .group button.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  #hint{font-size:14px;color:var(--sub);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22em}
+  @media (max-width:900px){#hint{display:none}}
+  main{flex:1;min-height:0;position:relative}
+  main iframe,#imgbox{position:absolute;inset:0;width:100%;height:100%;border:0}
+  #imgbox img{display:block;width:100%;height:100%;object-fit:contain;padding:12px}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <h1>1031 競賽場地配置圖</h1>
+  <div class="group" id="plan">
+    <button data-v="1" class="on">方案一：A＝X光／B＝CT</button>
+    <button data-v="2">方案二：A＝CT／B＝X光</button>
+  </div>
+  <div class="group" id="mode">
+    <button data-v="img" class="on">靜態圖</button>
+    <button data-v="3d">互動 3D</button>
+    <button data-v="linkou">林口場地結合</button>
+    <button data-v="tips">考前重點提醒</button>
+    <button data-v="er">急救情境預案</button>
+  </div>
+  <span id="hint"></span>
+</header>
+<main>
+  <div id="imgbox"><img id="img" alt="場地配置圖"></div>
+  <iframe id="frame" hidden title="互動 3D 場地"></iframe>
+</main>
+<script src="nozoom.js"></script>
+<script src="panzoom.js"></script>
+<script>
+  const st = { plan: '1', mode: 'img' };
+  const imgbox = document.getElementById('imgbox');
+  const img = document.getElementById('img'), frame = document.getElementById('frame'), hint = document.getElementById('hint');
+  function show() {
+    imgbox.hidden = st.mode !== 'img';
+    frame.hidden = st.mode === 'img';
+    if (!img.src.endsWith(encodeURI(`方案${st.plan}.png`))) { img.src = `方案${st.plan}.png`; pzImg.reset(); }
+    if (st.mode === '3d') frame.src = `venue3d.html?plan=${st.plan}&embed`;
+    if (st.mode === 'linkou') frame.src = 'linkou.html';
+    if (st.mode === 'tips') frame.src = 'reminders.html';
+    if (st.mode === 'er') frame.src = `emergency.html?plan=${st.plan}`;          // 示意圖跟著方案切換
+    const planOff = st.mode === 'linkou' || st.mode === 'tips';         // 不適用時變灰，不隱藏，避免版面跳動
+    const pg = document.getElementById('plan');
+    pg.classList.toggle('off', planOff);
+    pg.title = planOff ? '此分頁內有自己的方案切換' : '';
+    hint.textContent = { img: '滾輪／捏合縮放・拖曳平移・雙擊還原', '3d': '左鍵拖曳旋轉・滾輪縮放・右鍵平移', linkou: '模擬教室(一)(二) 與考場配置圖的對應', tips: '可勾選已複習項目', er: '示意圖會跟著上方方案切換' }[st.mode];
+  }
+  for (const id of ['plan', 'mode']) {
+    document.getElementById(id).addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      st[id] = b.dataset.v;
+      document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b));
+      show();
+    });
+  }
+  addEventListener('keydown', e => {
+    if ((e.key === '1' || e.key === '2') && !document.getElementById('plan').classList.contains('off')) document.querySelector(`#plan button[data-v="${e.key}"]`).click();
+  });
+  const pzImg = panZoom(imgbox, { wheelZoom: true });
+  show();
+</script>
+</body>
+</html>

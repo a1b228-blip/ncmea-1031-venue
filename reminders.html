@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>考前重點提醒</title>
+<style>
+  html{touch-action:pan-y}                                    /* 只允許上下捲動，觸控也不能左右滑、不能捏合縮放整頁 */
+  html,body{overflow-x:clip;max-width:100%;overscroll-behavior:none}                    /* 網頁寬度固定；不回彈、不左右滑動換頁 */
+  :root{
+    --bg:#f3f5f8;--card:#fff;--ink:#1f2a37;--sub:#5b6472;--line:#e5e7eb;
+    --do:#15803d;--do-bg:#dcfce7;--say:#1d4ed8;--say-bg:#dbeafe;--no:#b91c1c;--no-bg:#fee2e2;--key:#b45309;--key-bg:#fef3c7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang TC","Heiti TC","Microsoft JhengHei",sans-serif;font-size:30px;line-height:1.7}
+  .wrap{padding:24px clamp(16px,3vw,40px) 48px}                /* 滿版：左右貼齊網頁寬度 */
+  header.hero{background:linear-gradient(135deg,#1f2a37,#334155);color:#fff;border-radius:18px;padding:22px 24px;margin-bottom:18px}
+  .hero h1{margin:0;font-size:clamp(45px,5.4vw,66px);letter-spacing:1px}
+  .hero p{margin:6px 0 0;color:#cbd5e1;font-size:32px}
+  .hero .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .hero .meta span{background:rgba(255,255,255,.12);border-radius:999px;padding:3px 12px;font-size:27px}
+
+  h2{font-size:40px;margin:30px 0 12px;display:flex;align-items:center;gap:10px;scroll-margin-top:120px}
+  h2 .no{display:inline-grid;place-items:center;width:54px;height:54px;border-radius:9px;background:#1f2a37;color:#fff;font-size:30px}
+
+  /* 30 秒速記 */
+  .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+  .q{border-radius:14px;padding:14px 16px;border:2px solid}
+  .q h3{margin:0 0 6px;font-size:34px;display:flex;align-items:center;gap:8px}
+  .q ul{margin:0;padding-left:28px;font-size:26px;line-height:1.6}            /* 卡片內文字配合格子寬度 */
+  .q li{margin:3px 0}
+  .q.do{background:var(--do-bg);border-color:#86efac}.q.do h3{color:var(--do)}
+  .q.say{background:var(--say-bg);border-color:#93c5fd}.q.say h3{color:var(--say)}
+  .q.no{background:var(--no-bg);border-color:#fca5a5}.q.no h3{color:var(--no)}
+
+  .card{background:var(--card);border-radius:14px;padding:6px 18px;box-shadow:0 2px 10px rgba(0,0,0,.05);margin-bottom:12px}
+  .item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .item input{margin-top:14px;width:32px;height:32px;accent-color:#15803d;flex:none;cursor:pointer}
+  .item.checked .txt{color:#9ca3af}
+  .item.checked .txt mark,.item.checked .tag{opacity:.55}
+  .txt{flex:1;min-width:0}
+  .tag{display:inline-block;font-size:26px;font-weight:700;border-radius:6px;padding:0 7px;margin-right:6px;vertical-align:2px;white-space:nowrap}
+  .tag.do{background:var(--do-bg);color:var(--do)}
+  .tag.say{background:var(--say-bg);color:var(--say)}
+  .tag.no{background:var(--no-bg);color:var(--no)}
+  .tag.key{background:var(--key-bg);color:var(--key)}
+  mark{background:linear-gradient(transparent 55%,#fde68a 55%);color:inherit;font-weight:700;padding:0 1px}
+  .sub{color:var(--sub);font-size:30px;display:block;margin-top:2px}
+  .eg{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:10px;margin-top:10px}
+  .eg div{border-radius:10px;padding:8px 12px;font-size:26px}
+  .eg .ok{background:var(--do-bg)} .eg .bad{background:var(--no-bg)}
+  .eg b{display:block;font-size:26px}
+  .eg .ok b{color:var(--do)} .eg .bad b{color:var(--no)}
+  .formula{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .formula span{background:#1f2a37;color:#fff;border-radius:8px;padding:2px 10px;font-size:30px;font-weight:700}
+  .formula i{font-style:normal;color:var(--sub);align-self:center}
+
+  .alert{border-radius:14px;padding:14px 18px;margin-bottom:10px;border-left:6px solid var(--no);background:var(--no-bg)}
+  .alert b{color:var(--no)}
+  .info{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+  .info .card{padding:14px 18px}
+  .info h4{margin:0 0 4px;font-size:32px;color:var(--sub)}
+  .note{font-size:27px;color:var(--sub);margin-top:6px}
+
+  .bar{position:sticky;top:0;z-index:5;background:rgba(243,245,248,.94);backdrop-filter:blur(6px);
+    padding:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
+  .bar a,.bar .prog,.bar button{flex:none;white-space:nowrap}
+  .bar a{font-size:27px;color:var(--ink);text-decoration:none;background:#fff;border-radius:999px;padding:3px 12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .bar .prog{margin-left:auto;font-size:27px;color:var(--sub)}
+  .bar button{border:0;background:transparent;color:var(--sub);font:inherit;font-size:26px;cursor:pointer;text-decoration:underline}
+  .screen{position:relative;border-radius:12px;overflow:hidden;border:6px solid #1f2a37;background:#1f2a37;margin:14px 0 6px}
+  .screen img{display:block;width:100%;height:auto}
+  .badge{position:absolute;transform:translate(-50%,-50%);width:clamp(32px,3.6vw,46px);height:clamp(32px,3.6vw,46px);border-radius:50%;
+    background:#e53935;color:#fff;font-weight:800;display:grid;place-items:center;font-size:clamp(27px,3vw,39px);
+    box-shadow:0 0 0 4px rgba(229,57,53,.25)}
+  .ring{position:absolute;border:3px solid #e53935;border-radius:12px}
+  figcaption{font-size:27px;color:var(--sub);margin-bottom:12px}
+  .sys{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;margin-bottom:12px}
+  .sys .card{padding:14px 16px;margin:0}
+  .sys h4{margin:0 0 6px;font-size:33px;display:flex;align-items:center;gap:8px}
+  .sys h4 .n{display:inline-grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#e53935;color:#fff;font-size:27px;flex:none}
+  .sys ul{margin:0;padding-left:20px;font-size:26px;line-height:1.6}
+  .sys li{margin:3px 0}
+  .official{border-radius:12px;background:var(--key-bg);border:2px solid #fcd34d;padding:12px 16px;margin-bottom:12px}
+  @media (max-width:760px){.sys{grid-template-columns:1fr}}
+  @media (max-width:760px){.quick,.info,.eg{grid-template-columns:1fr}}
+  @media (max-width:520px){body{font-size:24px}h2{font-size:30px}.q h3{font-size:28px}.hero h1{font-size:38px}.hero p,.bar a{font-size:22px}}   /* 手機稍微縮小，避免標題斷行 */
+  @media print{.bar{display:none}.item input{display:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>考前重點提醒</h1>
+    <p>整理自 NCMEA 國家臨床醫學教育獎《擬真情境類競賽參賽注意事項說明》醫事放射組第二場</p>
+    <div class="meta"><span>📅 2026/10/31（六）</span><span>📍 林口長庚</span><span>🩻 醫事放射組 第二場</span></div>
+  </header>
+
+  <nav class="bar">
+    <a href="#s0">30 秒速記</a><a href="#s1">一般操作</a><a href="#s2">身體診察</a><a href="#s3">設備操作</a>
+    <a href="#s4">給藥・輸液</a><a href="#s5">放射設備</a><a href="#s5b">控制台螢幕</a><a href="#s6">電話・999</a><a href="#s7">場地設備</a>
+    <span class="prog" id="prog"></span><button id="reset">清除勾選</button>
+  </nav>
+
+  <!-- 30 秒速記 -->
+  <h2 id="s0"><span class="no">⚡</span>30 秒速記：做／說／不要做</h2>
+  <div class="quick">
+    <div class="q do">
+      <h3>✅ 一定要「實際做」</h3>
+      <ul>
+        <li><b>壓胸、摸脈搏、通氣給氧、插管</b>（模擬人會記錄給裁判）</li>
+        <li>聽診、視診、觸診、叩診的<b>動作</b></li>
+        <li>綁血壓計、夾血氧機、擺超音波探頭</li>
+        <li>GCS 評估的<b>疼痛刺激</b></li>
+        <li>用手機<b>實際撥出</b>電話、急救撥 <b>999</b></li>
+        <li>點滴<b>掛上點滴架並黏貼</b>於模擬人</li>
+        <li>進場先<b>看控制台螢幕</b>：必要資訊都在畫面上</li>
+      </ul>
+    </div>
+    <div class="q say">
+      <h3>💬 只要「口述」</h3>
+      <ul>
+        <li>醫囑、護理紀錄、給藥紀錄</li>
+        <li>護目鏡、面罩、隔離衣等防護裝備</li>
+        <li>開氧氣閥門（隔空轉閥＋說「已開啟」）</li>
+        <li>放射設備操作：升床、進床、對雷射、打角度、調 collimator</li>
+        <li>抽血、備血、其他檢查：<b>要說出項目</b></li>
+        <li>電擊：<b>說出設定值</b>後隔空放電</li>
+      </ul>
+    </div>
+    <div class="q no">
+      <h3>⛔ 絕對「不要做」</h3>
+      <ul>
+        <li>移除模擬人身上的 <b>ECG 電極貼片</b></li>
+        <li>調整<b>病床、推床高度</b></li>
+        <li><b>掀開床單</b></li>
+        <li>打開輸液管路的 <b>lock</b></li>
+        <li>拆空針包裝（規定無須拆，拿著示意即可）</li>
+        <li>拖延進出情境、粗暴對待模擬人</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 最重要警示 -->
+  <h2><span class="no">!</span>最重要的兩件事</h2>
+  <div class="alert"><b>配合情境導演進出情境。</b>若因拖延導致情境進行遲滯，<mark>團隊自行承擔影響評分的結果</mark>。</div>
+  <div class="alert"><b>溫和對待模擬人。</b>造成模擬人損壞會影響其他參賽隊伍權益。</div>
+
+  <!-- 1 一般操作 -->
+  <h2 id="s1"><span class="no">1</span>一般操作原則</h2>
+  <div class="card">
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口述</span>醫囑、護理紀錄、給藥紀錄<mark>請清楚口述</mark>，無須書面紀錄。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag key">省時間</span>競賽提供的物品<mark>一律視為新品</mark>，不必確認效期、包裝完整性。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt">是否配戴<b>口罩</b>由團隊自行決定。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span>手套依<mark>實際臨床模式</mark>穿戴。<span class="sub"><span class="tag say">口述</span>防護眼鏡、面罩、隔離衣等防護設備：口述即可。</span></span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag key">求助</span>需要但找不到的東西，<mark>直接跟現場導演反應</mark>；可以跳過的步驟，導演會告訴你們。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口述＋動作</span>牆氧、氧氣鋼瓶<mark>不實際打開閥門</mark>：把供氧衛材接上供氧設備，<b>隔空做轉閥門動作，並口述「已開啟閥門」</b>。</span></label>
+  </div>
+
+  <!-- 2 身體診察 -->
+  <h2 id="s2"><span class="no">2</span>身體診察（高擬真模擬人）</h2>
+  <div class="card">
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><b>聽診</b>：確切做出聽診動作並詢問。模擬人<mark>會有呼吸音及腸音</mark>。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><b>視診、觸診、叩診</b>：確切做出動作並詢問，由現場導演回答。<mark>問題要具體</mark>，不能問籠統的結論。
+      <div class="eg">
+        <div class="ok"><b>✔ 正確</b>「請問兩側呼吸起伏對不對稱？」<br>（手摸四肢）「請問四肢冰冷或溫暖？」</div>
+        <div class="bad"><b>✘ 錯誤</b>「胸部視診如何？」<br>「病人有休克徵象嗎？」</div>
+      </div></span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><span class="tag key">裁判會看</span><mark>壓胸、摸脈搏、通氣給氧、插管請確實進行</mark>。模擬人會留下生理回饋記錄，供裁判賽後參考。</span></label>
+  </div>
+
+  <!-- 3 設備操作 -->
+  <h2 id="s3"><span class="no">3</span>設備操作</h2>
+  <div class="card">
+    <label class="item"><input type="checkbox"><span class="txt">情境中的備物都放在旁邊，可以直接使用，<mark>依平常臨床處置去做</mark>。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><b>量血壓</b>：確切做出綁血壓計的動作。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><b>血氧機</b>：確實夾在<mark>正確位置</mark>。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><b>超音波</b>：探頭要擺到想看的位置，導演會依情境給資訊。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><b>意識評估（GCS）</b>：確實做出評估動作，例如<mark>疼痛刺激</mark>。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口述</span><b>抽血、備血、其他檢查</b>：口述，而且<mark>必須說出要抽哪些項目與內容</mark>，主辦會視時機提供檢查報告。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口述＋動作</span><b>電擊</b>：<mark>口頭告知設定值</mark>，完成後隔空放電。</span></label>
+  </div>
+
+  <!-- 4 給藥・輸液 -->
+  <h2 id="s4"><span class="no">4</span>管路與給藥</h2>
+  <div class="card">
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口述</span><b>給藥</b>一定要說齊三項：
+      <div class="formula"><span>藥物名稱</span><i>＋</i><span>劑量</span><i>＋</i><span>施打途徑</span></div></span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">動作</span>拿著空針，<mark>不用拆包裝</mark>，走到病人身旁示意施打。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口述</span><b>輸液或輸血</b>一定要說齊四項：
+      <div class="formula"><span>品名</span><i>＋</i><span>種類</span><i>＋</i><span>數量</span><i>＋</i><span>滴速</span></div>
+      <span class="sub"><span class="tag do">動作</span>要有掛上點滴架的動作，並黏貼於模擬人身上。<span class="tag no">禁止</span><b>請勿打開 lock</b>。</span></span></label>
+  </div>
+
+  <!-- 5 放射設備 -->
+  <h2 id="s5"><span class="no">5</span>放射線設備與電腦軟體</h2>
+  <div class="card">
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口述</span>操作放射線硬體設備<mark>一律口述</mark>：升床、進床、對雷射、歸零、打角度、調整 collimator。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag no">禁止</span><mark>請勿調整病床、推床高度</mark>。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag no">禁止</span><mark>請勿掀開床單</mark>。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag key">看螢幕</span>依<mark>螢幕畫面指示</mark>操作放射線設備與電腦軟體，必要資訊會顯示在畫面上。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag say">口令</span>需要受檢者吸氣、閉氣時，直接口頭指示引導。</span></label>
+  </div>
+
+  <!-- 5-1 控制台電腦畫面 -->
+  <h2 id="s5b"><span class="no">🖥</span>控制台電腦畫面：考試時螢幕會出現什麼</h2>
+  <div class="official"><span class="tag key">官方規定</span>請<mark>依螢幕畫面指示</mark>操作放射線設備與電腦軟體，<mark>畫面上將呈現必要資訊</mark>。<span class="sub">也就是說：該看的資料都在螢幕裡，進場後先看螢幕、別只看檢查單。</span></div>
+  <figure style="margin:0">
+    <div class="screen">
+      <img src="控制台電腦畫面.png" alt="控制台電腦起始畫面：左側選單有電腦斷層掃描系統、PACS 影像系統、檢驗報告查詢系統">
+      <span class="ring" style="left:.6%;top:24%;width:11.2%;height:18%"></span>
+      <span class="ring" style="left:.6%;top:42%;width:11.2%;height:17%"></span>
+      <span class="ring" style="left:.6%;top:59%;width:11.2%;height:18%"></span>
+      <span class="badge" style="left:13.6%;top:33%">1</span>
+      <span class="badge" style="left:13.6%;top:50.5%">2</span>
+      <span class="badge" style="left:13.6%;top:68%">3</span>
+    </div>
+    <figcaption>參賽說明第 11 頁附圖：控制台電腦的起始畫面。中間顯示「請由左側選單選擇功能」，左側有三個系統可以點。</figcaption>
+  </figure>
+  <div class="sys">
+    <div class="card">
+      <h4><span class="n">1</span>電腦斷層掃描系統</h4>
+      <ul>
+        <li>操作 CT 掃描，<b>照畫面步驟走</b></li>
+        <li>先<mark>核對病人身分</mark>：姓名、出生日期、病歷號要跟手圈、檢查單一致</li>
+        <li>確認檢查部位、是否要打對比劑</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="n">2</span>PACS 影像系統</h4>
+      <ul>
+        <li>拍完、掃完要<mark>回來看影像</mark></li>
+        <li>看到<b>危急或異常發現</b>（例如右位心、氣胸）要立刻通報醫師</li>
+        <li>需要時可對照舊片</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="n">3</span>檢驗報告查詢系統</h4>
+      <ul>
+        <li>打對比劑前查<mark>腎功能（Creatinine、eGFR）</mark></li>
+        <li>糖尿病人留意<b>血糖</b>與 Metformin 用藥</li>
+        <li>口述抽血後，主辦會<b>視時機提供報告</b>，記得回來查</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">※ 三個系統各自「要看什麼」是依我們教案整理的建議；官方只說明畫面會呈現必要資訊。</p>
+
+  <!-- 6 電話 -->
+  <h2 id="s6"><span class="no">6</span>電話與急救通報</h2>
+  <div class="card">
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span>聯絡醫師或檢查室：用<mark>控制台檯面上的手機</mark>，開啟後選快捷撥號（醫師、檢查室），<b>實際撥出</b>，接通後會有人回應。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt">遇到通話中，<b>稍候再撥</b>。</span></label>
+    <label class="item"><input type="checkbox"><span class="txt"><span class="tag do">實做</span><span class="tag key">急救</span>啟動急救通報：手機選快捷撥號 <mark>999 急救專線</mark>，實際撥出。接通後<mark>說出急救地點與情境相關資訊</mark>。</span></label>
+  </div>
+
+  <!-- 7 場地設備 -->
+  <h2 id="s7"><span class="no">7</span>場地與設備資訊</h2>
+  <div class="info">
+    <div class="card">
+      <h4>高擬真模擬人</h4>
+      <b>Gaumard S1000</b>
+      <div class="note">可自行連接或移除心電圖導線（胸前三導程）。<br><span class="tag no">禁止</span>請勿自行移除 ECG 電極貼片。</div>
+    </div>
+    <div class="card">
+      <h4>生理監視器（兩種都可能遇到）</h4>
+      <b>Philips IntelliVue MX450</b><br><b>Mindray BeneVision N15</b>
+    </div>
+    <div class="card">
+      <h4>控制台電腦系統</h4>
+      電腦斷層掃描系統・PACS 影像系統・<b>檢驗報告查詢系統</b>
+      <div class="note">畫面說明見上方「控制台電腦畫面」。</div>
+    </div>
+    <div class="card">
+      <h4>競賽場地</h4>
+      林口長庚，模擬教室(一)、(二)，兩間檢查室 A／B
+      <div class="note">場地配置與動線見「林口場地結合」分頁；其中進出大門位置是依考場配置圖推論，報到時請再確認。</div>
+    </div>
+  </div>
+</div>
+<script src="nozoom.js"></script>
+<script>
+  // 勾選狀態只存在這台瀏覽器，方便自己複習
+  const KEY = 'ncmea-reminder-checks';
+  const boxes = [...document.querySelectorAll('.item input')];
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch {}
+  const prog = document.getElementById('prog');
+  function refresh() {
+    boxes.forEach(b => b.closest('.item').classList.toggle('checked', b.checked));
+    prog.textContent = `已複習 ${boxes.filter(b => b.checked).length} / ${boxes.length}`;
+  }
+  boxes.forEach((b, i) => {
+    b.checked = !!saved[i];
+    b.addEventListener('change', () => {
+      try { localStorage.setItem(KEY, JSON.stringify(boxes.map(x => x.checked))); } catch {}
+      refresh();
+    });
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    boxes.forEach(b => b.checked = false);
+    try { localStorage.removeItem(KEY); } catch {}
+    refresh();
+  });
+  refresh();
+</script>
+</body>
+</html>

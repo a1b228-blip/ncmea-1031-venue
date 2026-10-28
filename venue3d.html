@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>競賽場地 3D 配置圖</title>
+<style>
+  html{touch-action:pan-y}                                    /* 只允許上下捲動，觸控也不能左右滑、不能捏合縮放整頁 */
+  html,body{overflow-x:clip;max-width:100%;overscroll-behavior:none}                    /* 網頁寬度固定；不回彈、不左右滑動換頁 */
+  html,body{margin:0;width:100%;height:100%;background:#eef1f5;overflow:hidden;
+    font-family:"PingFang TC","Heiti TC","Microsoft JhengHei",sans-serif}
+  #title{position:absolute;left:3vw;top:2.3vw;color:#1f2a37}
+  #title h1{margin:0;font-size:clamp(16px,1.9vw,46px);letter-spacing:2px}
+  #title p{margin:.4em 0 0;font-size:clamp(12px,1.1vw,26px);color:#4b5563}
+  #legend{position:absolute;right:2vw;top:2.3vw;background:#fff;border-radius:12px;
+    padding:.7em 1em;font-size:clamp(11px,1vw,24px);color:#1f2a37;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+  #legend div{display:flex;align-items:center;gap:.5em;margin:.25em 0}
+  #legend i{display:inline-block;width:1.1em;height:.75em;border-radius:3px}
+  #note{position:absolute;left:3vw;bottom:1.5vw;font-size:clamp(10px,.9vw,21px);color:#6b7280}
+  body.embed #title{display:none}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="title"><h1 id="t1"></h1><p id="t2"></p></div>
+<div id="legend">
+  <div><i style="background:#9ec3ea"></i>一般 X 光室</div>
+  <div><i style="background:#f6c39f"></i>電腦斷層室（CT）</div>
+  <div><i style="background:#c5e0b4"></i>等候區</div>
+  <div><i style="background:#e5e7eb"></i>走道</div>
+  <div><i style="background:#e53935"></i>人員動線（原平面圖箭頭）</div>
+</div>
+<div id="note">依 NCMEA 醫事放射組第二場（2026/10/31 林口長庚）參賽說明第 3 頁平面圖等比例建模；設備外觀為示意。</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { buildExamInterior } from './exam_equipment.js';
+import { installZoom } from './zoom3d.js';
+
+// plan=1：A=一般X光、B=CT；plan=2：A=CT、B=一般X光
+const qs = new URLSearchParams(location.search);
+const plan = qs.get('plan') === '2' ? 2 : 1;
+if (qs.has('embed')) document.body.classList.add('embed');
+const roomType = plan === 1 ? { A: 'xray', B: 'ct' } : { A: 'ct', B: 'xray' };
+const NAME = { xray: '一般X光室', ct: '電腦斷層室（CT）' };
+const FLOOR = { xray: 0x9ec3ea, ct: 0xf6c39f };
+document.getElementById('t1').textContent =
+  `競賽場地 3D 配置圖｜方案${plan === 1 ? '一' : '二'}`;
+document.getElementById('t2').textContent =
+  `檢查室 A ＝ ${NAME[roomType.A]}　／　檢查室 B ＝ ${NAME[roomType.B]}`;
+
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));   // 高解析輸出
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xeef1f5);
+
+// 座標：x = 投影片 x（pt），z = 投影片 y（pt，往下＝南），y = 高度
+const C = { x: 490, z: 308 };
+// 視窗窄時加大可視高度，確保整個場地左右都放得下
+const fitSpan = a => Math.max(900, 1500 / a);
+let aspect = W / H, span = fitSpan(aspect);
+const cam = new THREE.OrthographicCamera(-span * aspect / 2, span * aspect / 2, span / 2, -span / 2, 1, 5000);
+cam.position.set(C.x - 170, 900, C.z + 560);
+cam.lookAt(C.x + 70, 0, C.z + 5);
+cam.zoom = 1.5; cam.updateProjectionMatrix();
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb0b8c4, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(C.x - 300, 900, C.z + 400);
+sun.target.position.set(C.x, 0, C.z);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -600, right: 600, top: 600, bottom: -600, near: 10, far: 3000 });
+sun.shadow.bias = -0.0005;
+scene.add(sun, sun.target);
+
+const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: 0.05 });
+function box(x1, z1, x2, z2, y1, y2, color, shadow = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1), mat(color));
+  m.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+  m.castShadow = shadow; m.receiveShadow = true;
+  scene.add(m); return m;
+}
+function cyl(x, z, r, y1, y2, color, seg = 32) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y2 - y1, seg), mat(color));
+  m.position.set(x, (y1 + y2) / 2, z); m.castShadow = true; m.receiveShadow = true;
+  scene.add(m); return m;
+}
+
+function label(text, x, y, z, { size = 30, bg = 'rgba(255,255,255,.93)', fg = '#1f2a37', bold = true, border = null } = {}) {
+  const s = 3, cv = document.createElement('canvas'), g = cv.getContext('2d');
+  const font = `${bold ? 700 : 500} ${size * s}px "PingFang TC","Heiti TC",sans-serif`;
+  g.font = font;
+  const lines = text.split('\n');
+  const tw = Math.max(...lines.map(l => g.measureText(l).width));
+  const pad = size * s * 0.5, lh = size * s * 1.3;
+  cv.width = tw + pad * 2; cv.height = lh * lines.length + pad * 1.1;
+  g.font = font;
+  g.fillStyle = bg;
+  const r = size * s * 0.35;
+  g.beginPath(); g.roundRect(0, 0, cv.width, cv.height, r); g.fill();
+  if (border) { g.lineWidth = s * 3; g.strokeStyle = border; g.stroke(); }
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  lines.forEach((l, i) => g.fillText(l, cv.width / 2, pad * 0.55 + lh * (i + 0.5)));
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  const k = 0.42 / s;
+  sp.scale.set(cv.width * k, cv.height * k, 1);
+  sp.position.set(x, y, z); sp.renderOrder = 10;
+  scene.add(sp); return sp;
+}
+
+// ── 地板 ─────────────────────────────────────────
+box(150, 130, 920, 540, -6, -0.5, 0xd7dbe1, false);              // 周邊
+box(160, 158, 194, 458, -0.5, 0, 0xb8bec7, false);              // 左側非使用區（灰）
+box(876, 158, 898, 458, -0.5, 0, 0xb8bec7, false);             // 右側非使用區（灰）
+box(210, 166, 466, 266, 0, 0.6, 0xc5e0b4, false);              // 等候區
+box(418, 266, 466, 300, 0, 0.6, 0xc5e0b4, false);              // 等候區斜角
+box(210, 266, 466, 458, 0, 0.5, FLOOR[roomType.B], false);     // 檢查室 B
+box(635, 166, 860, 458, 0, 0.5, FLOOR[roomType.A], false);     // 檢查室 A
+box(466, 198, 635, 248, 0, 0.7, 0xe5e7eb, false);              // 走道
+box(482, 260, 619, 458, 0, 3, 0xc9ced6);                       // 走道下方非使用區
+box(482, 166, 620, 182, 0, 3, 0xc9ced6);                      // 走道上方非使用區
+
+// ── 牆 ───────────────────────────────────────────
+const WH = 34, WC = 0x5b6472, WLOW = 5;
+const wall = (x1, z1, x2, z2, h = WH) => box(x1, z1, x2, z2, 0, h, WC);
+wall(194, 158, 688, 166); wall(735, 158, 876, 166);          // 北牆（只留進出大門）
+// 檢查室 B 側（等候區北面）原有外門：依使用者指示封閉，以紅色封條標示
+box(318, 154, 361, 157.5, 6, 30, 0xe53935);
+label('外門已封閉', 340, 58, 150, { size: 15, bg: '#e53935', fg: '#fff' });
+wall(194, 158, 210, 458);                                     // 西牆
+wall(860, 158, 876, 458);                                     // 東牆
+wall(194, 452, 876, 460, WLOW);                               // 南牆（剖切降低以便觀看）
+wall(466, 158, 482, 199); wall(466, 248, 482, 458);           // 走道西側牆
+wall(619, 158, 635, 199); wall(619, 248, 635, 458);           // 走道東側牆
+wall(482, 182, 619, 198); wall(482, 248, 619, 260);           // 走道南北牆
+wall(290, 266, 418, 280);                                     // 等候區／檢查室 B 隔牆
+{ // 斜牆（矩形 48，旋轉約 30°）
+  const m = new THREE.Mesh(new THREE.BoxGeometry(62, WH, 14), mat(WC));
+  m.position.set(442, WH / 2, 288); m.rotation.y = -29.7 * Math.PI / 180;
+  m.castShadow = m.receiveShadow = true; scene.add(m);
+}
+// 門框
+box(688, 158, 735, 166, 30, WH, WC);
+
+// ── 動線箭頭（原平面圖紅色雙向箭頭）────────────────
+function arrow(cx, cz, len, rotDeg) {
+  const L = len / 2, w = 7, hw = 15, hl = 18, s = new THREE.Shape();
+  s.moveTo(-L, 0); s.lineTo(-L + hl, hw); s.lineTo(-L + hl, w); s.lineTo(L - hl, w); s.lineTo(L - hl, hw);
+  s.lineTo(L, 0); s.lineTo(L - hl, -hw); s.lineTo(L - hl, -w); s.lineTo(-L + hl, -w); s.lineTo(-L + hl, -hw); s.closePath();
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 2, bevelEnabled: false }),
+    new THREE.MeshStandardMaterial({ color: 0xe53935, roughness: 0.5 }));
+  m.rotation.x = -Math.PI / 2; m.rotation.z = -rotDeg * Math.PI / 180;
+  m.position.set(cx, 1.2, cz); scene.add(m);
+}
+arrow(462, 223, 80, 0); arrow(638, 223, 80, 0); arrow(711, 150, 80, 90); arrow(250, 273, 72, 90);
+
+// ── 設備（擺設定義在 exam_equipment.js，與林口場地 3D 共用）────────
+buildExamInterior({ THREE, box, cyl, label, mat, add: m => scene.add(m), rigid: (ax, az, fn) => fn() }, roomType);
+
+// ── 區域標籤 ─────────────────────────────────────
+label(`檢查室 A\n${NAME[roomType.A]}`, 748, 10, 505, { size: 32, border: roomType.A === 'ct' ? '#e07b39' : '#3b82c4' });
+label(`檢查室 B\n${NAME[roomType.B]}`, 338, 10, 505, { size: 32, border: roomType.B === 'ct' ? '#e07b39' : '#3b82c4' });
+label('等候區', 250, 90, 200, { size: 28 });
+label('走道', 550, 70, 223, { size: 26 });
+label('進出大門', 711, 80, 112, { size: 26, bg: '#e53935', fg: '#fff' });
+
+// 互動：滑鼠拖曳旋轉、滾輪縮放、右鍵平移
+const controls = new OrbitControls(cam, renderer.domElement);
+controls.target.set(C.x + 70, 0, C.z + 5);
+controls.maxPolarAngle = Math.PI / 2.1;
+controls.update();
+controls.saveState();
+controls.addEventListener('change', () => renderer.render(scene, cam));
+installZoom({ cam, controls, render: () => renderer.render(scene, cam), reset: () => controls.reset() });
+addEventListener('resize', () => {
+  const w = innerWidth, h = innerHeight, a = w / h;
+  span = fitSpan(a);
+  Object.assign(cam, { left: -span * a / 2, right: span * a / 2, top: span / 2, bottom: -span / 2 });
+  cam.updateProjectionMatrix(); renderer.setSize(w, h); renderer.render(scene, cam);
+});
+renderer.render(scene, cam);
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>
