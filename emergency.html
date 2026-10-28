@@ -170,6 +170,15 @@ function nurseIcon(R) {                        // 頭＋護士帽（紅十字）
     `<path d="M${-R * .5} ${-R * .5} L${-R * .4} ${-R * .9} L${R * .4} ${-R * .9} L${R * .5} ${-R * .5} Z" fill="#fff" stroke="#9ca3af" stroke-width="1"/>` +  // 護士帽
     `<path d="M0 ${-R * .84}V${-R * .56}M${-R * .14} ${-R * .7}H${R * .14}" stroke="#dc2626" stroke-width="2"/>`;   // 紅十字
 }
+function spIcon(R) {                           // 標準病人：綠色病人服＋手圈，右上角標「SP」
+  return `<circle r="${R}" fill="#d1fae5" stroke="#fff" stroke-width="2.5"/>` +
+    `<path d="M${-R * .78} ${R * .78} Q${-R * .7} ${R * .1} 0 ${R * .12} Q${R * .7} ${R * .1} ${R * .78} ${R * .78} Q0 ${R * 1.05} ${-R * .78} ${R * .78}Z" fill="${C.sp}"/>` +
+    `<path d="M${-R * .25} ${R * .3}H${R * .25}M${-R * .25} ${R * .52}H${R * .25}" stroke="#a7f3d0" stroke-width="1.6"/>` +      // 病人服紋路
+    `<circle cy="${-R * .22}" r="${R * .38}" fill="${SKIN}" stroke="${SKIN_LINE}" stroke-width="1"/>` +
+    `<path d="M${-R * .36} ${-R * .36} Q0 ${-R * .78} ${R * .36} ${-R * .36}" fill="#4b3621"/>` +                             // 頭髮
+    `<g transform="translate(${R * .72},${-R * .72})"><rect x="-11" y="-8" width="22" height="16" rx="5" fill="#065f46" stroke="#fff" stroke-width="1.5"/>` +
+    `<text y="4.5" font-size="11" font-weight="800" text-anchor="middle" fill="#fff">SP</text></g>`;
+}
 const iconSvg = (inner, vb, w = '1.6em', h = '1.1em') => `<svg viewBox="${vb}" width="${w}" height="${h}" style="vertical-align:-.3em;flex:none">${inner}</svg>`;
 
 function svgFor(s) {
@@ -220,6 +229,7 @@ function svgFor(s) {
     if (p.lead) g += `<circle r="${R + 6}" fill="none" stroke="#f59e0b" stroke-width="4"/>`;
     if (p.who === 'mk') g += `<g transform="scale(1.2)">${annieIcon()}</g>`;   // 安妮假人躺在推床上
     else if (p.who === 'rn') g += nurseIcon(R + 1);                         // 護理師圖示
+    else if (p.who === 'sp') g += spIcon(R + 1);                            // 標準病人圖示（標 SP）
     else g += `<circle r="${R}" fill="${P.c}" stroke="#fff" stroke-width="2.5"/><text y="6" font-size="${P.t.length > 1 ? 14 : 17}" font-weight="800" text-anchor="middle" fill="#fff">${P.t}</text>`;
     if (p.lead) g += `<text x="${R}" y="${-R + 2}" font-size="18">⭐</text>`;
     if (p.tag) g += `<text y="${p.who === 'mk' ? -R - 10 : R + 20}" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2a37" paint-order="stroke" stroke="#fff" stroke-width="4">${p.tag}</text>`;
@@ -242,7 +252,7 @@ const SCN = [
       { who: 'rta', at: pt(ct, 3), tag: '通氣・輪替壓胸' },
       { who: 'rta', at: pt(xr, 3), ghost: true },
       { who: 'rtb', at: pt(xr, 1), tag: '顧 SP' },
-      { who: 'sp', at: pt(xr, 0), tag: '暫停檢查' },
+      { who: 'sp', at: pt(xr, 0), tag: 'SP・暫停檢查' },
     ],
     moves: [{ path: route(xr, ct), color: C.rt }],
     carts: [{ at: pt(ct, 4) }],
@@ -260,7 +270,7 @@ const SCN = [
       { who: 'rn', at: pt(xr, 3), lead: true, tag: '到場接手指揮' },
       { who: 'rn', at: pt(ct, 3), ghost: true },
       { who: 'rtc', at: pt(ct, 1), tag: '顧 SP・觀察過敏' },
-      { who: 'sp', at: pt(ct, 0), tag: '暫停檢查' },
+      { who: 'sp', at: pt(ct, 0), tag: 'SP・暫停檢查' },
     ],
     moves: [{ path: route(ct, xr), color: C.rn }],
     carts: [{ at: pt(ct, 4), ghost: true }, { at: pt(xr, 4) }],
@@ -279,7 +289,7 @@ const SCN = [
       { who: 'rtc', at: pt(ct, 1), tag: '推床・壓胸' },
       { who: 'rta', at: pt('wait', 2), tag: '隔離家屬→回來輪替' },
       { who: 'rtb', at: pt(xr, 1), tag: '顧 SP' },
-      { who: 'sp', at: pt(xr, 0), tag: '暫停檢查' },
+      { who: 'sp', at: pt(xr, 0), tag: 'SP・暫停檢查' },
     ],
     family: [[430, 222]],
     moves: [{ path: route('wait', ct), color: C.mk, dash: '10 5' }, { path: route(xr, 'wait'), color: C.rt }],
@@ -300,7 +310,7 @@ const SCN = [
       { who: 'rn', at: pt(ct, 3), ghost: true },
       { who: 'rtb', at: pt('wait', 2), tag: '隔離家屬→回來輪替' },
       { who: 'rtc', at: pt(ct, 1), tag: '顧 SP' },
-      { who: 'sp', at: pt(ct, 0), tag: '暫停檢查' },
+      { who: 'sp', at: pt(ct, 0), tag: 'SP・暫停檢查' },
     ],
     family: [[430, 222]],
     moves: [{ path: route('wait', xr), color: C.mk, dash: '10 5' }, { path: route(ct, xr), color: C.rn }],
@@ -335,7 +345,7 @@ document.querySelectorAll('.fig .pz').forEach(b => panZoom(b));
 // 圖例
 document.getElementById('legend').innerHTML = [
   ['rn', '護理師（⭐ 隊長）'], ['rtc', 'CT 放射師（C）'], ['rta', 'X 光放射師（A／B）'], ['sp', '標準病人（SP）'], ['mk', '模擬假人（安妮，躺在推床上）'],
-].map(([w, t]) => `<span>${w === 'rn' ? iconSvg(nurseIcon(17), '-22 -22 44 44', '1.5em', '1.5em') : w === 'mk' ? iconSvg(annieIcon(), '-38 -17 76 34') : `<span class="dot" style="background:${PEOPLE[w].c}"></span>`}${t}</span>`).join('') +
+].map(([w, t]) => `<span>${w === 'rn' ? iconSvg(nurseIcon(17), '-22 -22 44 44', '1.5em', '1.5em') : w === 'sp' ? iconSvg(spIcon(17), '-22 -28 50 50', '1.6em', '1.6em') : w === 'mk' ? iconSvg(annieIcon(), '-38 -17 76 34') : `<span class="dot" style="background:${PEOPLE[w].c}"></span>`}${t}</span>`).join('') +
   '<span><span class="dot" style="background:#fecaca;border:2px dashed #7f1d1d;border-radius:4px"></span>半透明＝原本位置</span>' +
   '<span><span style="display:inline-block;width:36px;border-top:4px dashed #374151"></span>移動路線</span>' +
   '<span><span class="dot" style="background:#0ea5e9;border-radius:5px"></span>牆上氧氣 O₂</span>';
