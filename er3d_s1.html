@@ -327,7 +327,8 @@ import {
 const qs = new URLSearchParams(location.search);
 let plan = qs.get('plan') === '2' ? 2 : 1;
 let curSceneId = ['s1', 's2', 's3a', 's3b'].includes(qs.get('scene')) ? qs.get('scene') : 's1';
-if (qs.has('embed')) {
+const EMBED = qs.has('embed');
+if (EMBED) {
   document.body.classList.add('embed');
   document.querySelectorAll('header.topbar a').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });   // 內嵌時另開分頁，不把 iframe 換掉
 }
@@ -1421,8 +1422,14 @@ let curStep = 0;
 let autoPlay = false;
 let muted = false;
 const voiceAudio = new Audio();
+// 同一頁內嵌多個 3D 動畫時，只讓一個講話：這裡開始播語音，其他的就停下來
+const voiceChannel = 'BroadcastChannel' in window ? new BroadcastChannel('er3d-voice') : null;
+if (voiceChannel) voiceChannel.onmessage = () => {
+  voiceAudio.pause();
+  if (autoPlay) document.getElementById('btnAuto').click();
+};
 
-async function playStep(idx) {
+async function playStep(idx, { silent = false } = {}) {
   const meta = SCENARIO_META[curSceneId];
   const steps = meta.steps;
   curStep = Math.max(0, Math.min(steps.length - 1, idx));
@@ -1457,14 +1464,15 @@ async function playStep(idx) {
   applyCameraForStep(curStep);
 
   // 播放語音解說
-  voiceAudio.src = st.audio;
+  if (!silent) voiceAudio.src = st.audio;
   voiceAudio.currentTime = 0;
   voiceAudio.muted = muted;
-  const audioDone = new Promise(resolve => {
+  // 內嵌頁剛載入時先不講話，按「下一步」才開始
+  const audioDone = silent ? Promise.resolve() : new Promise(resolve => {
     voiceAudio.onended = resolve;
     voiceAudio.onerror = resolve;
   });
-  voiceAudio.play().catch(() => {});
+  if (!silent) { voiceAudio.play().catch(() => {}); voiceChannel?.postMessage('play'); }
 
   const CT = getRoomCoords(dynamicObjs.ctRoom);
   const XR = getRoomCoords(dynamicObjs.xrRoom);
@@ -1843,8 +1851,13 @@ function updateECGCanvas(now) {
 }
 
 // ── 主渲染迴圈 ───────────────────────────────────────────────
+let onScreen = true;
+if (EMBED && 'IntersectionObserver' in window) {
+  new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }).observe(document.getElementById('canvas-wrap'));
+}
 function animateLoop(now) {
   requestAnimationFrame(animateLoop);
+  if (!onScreen) return;
   controls.update();
   updateECGCanvas(now);
 
@@ -1863,13 +1876,13 @@ function animateLoop(now) {
 }
 
 // ── UI 事件綁定 ──────────────────────────────────────────────
-function rebuildAndStart(stepIdx = 0) {
+function rebuildAndStart(stepIdx = 0, opts) {
   document.querySelectorAll('#sceneGroup button').forEach(b => b.classList.toggle('on', b.dataset.scene === curSceneId));
   document.querySelectorAll('#planGroup button').forEach(b => b.classList.toggle('on', Number(b.dataset.plan) === plan));
   buildHighRealismVenue(plan);
   spawnActorsForScene();
   renderCabdTrack();
-  playStep(stepIdx);
+  playStep(stepIdx, opts);
 }
 
 document.getElementById('btnPrev').onclick = () => playStep(curStep - 1);
@@ -1932,7 +1945,7 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-rebuildAndStart(0);
+rebuildAndStart(0, { silent: EMBED });
 requestAnimationFrame(animateLoop);
 </script>
 </body>
